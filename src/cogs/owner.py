@@ -34,26 +34,33 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
         if row is None:
             return True
         return row["blacklisted"]
-        
+
     def __init__(self, bot: Bot):
         self.bot = bot
         self.identifies = []
         self.resumes = []
         # Are assets loading?
         self.bot.loading = False
-            
+
     @commands.command(aliases=["load", "reload"])
     @commands.is_owner()
     async def reloadcog(self, ctx: Context, cog: str = ""):
         '''Reloads extensions within the bot while the bot is running.'''
         if cog and f"src.cogs.{cog}" not in self.bot.extensions.keys():
             return await ctx.send("Unknown extension provided.")
-        
-        @synchronization.CogRefreshEvent(f"src.cogs.{cog}" if cog else None)
-        async def callback():
-            await ctx.send("Reloaded cogs from all instances.")
-        
-        await self.bot.request(callback)
+
+        if cog is None:
+            # construct a list to avoid iterating over a dict as it's mutated
+            for ext in list(self.bot.extensions):
+                await self.bot.reload_extension(ext)
+        else:
+            await self.bot.reload_extension(cog)
+
+        # @synchronization.CogRefreshEvent(f"src.cogs.{cog}" if cog else None)
+        # async def callback():
+        #     await ctx.send("Reloaded cogs from all instances.")
+
+        # await self.bot.request(callback)
 
     @commands.command(aliases=["reboot"])
     @commands.is_owner()
@@ -94,8 +101,8 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
         await self.bot.db.conn.execute(
             '''
             INSERT INTO users (user_id, blacklisted)
-            VALUES(?, 1) 
-            ON CONFLICT(user_id) 
+            VALUES(?, 1)
+            ON CONFLICT(user_id)
             DO UPDATE SET blacklisted=1;
             ''',
             user
@@ -131,7 +138,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
         # values.lua contains the data about which color (on the palette) is associated with each tile.
         with open("data/values.lua", encoding="utf-8", errors="replace") as fp:
             data = fp.read()
-        
+
         start = data.find("tileslist =\n")
         end = data.find("\n}\n", start)
 
@@ -144,7 +151,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                 d["text_type"] = d.pop("type")
             if d.get("image") is not None:
                 d["sprite"] = d.pop("image")
-            if d.get("colour") is not None:    
+            if d.get("colour") is not None:
                 inactive = d.pop("colour").split(",")
                 d["inactive_color_x"] = int(inactive[0])
                 d["inactive_color_y"] = int(inactive[1])
@@ -207,11 +214,11 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                 # Ignore changes without a name (the same name but a different color, etc)
                 if changes and changes.get("name") is not None:
                     changed_objects.append({**initial_objects[id], **prepare(changes)})
-            
+
         with open("config/editortileignore.json") as f:
             ignored_names = json.load(f)
         by_name = filter(lambda x: x[0] not in ignored_names, itertools.groupby(
-            sorted(changed_objects, key=lambda x: x["name"]), 
+            sorted(changed_objects, key=lambda x: x["name"]),
             key=lambda x: x["name"]
         ))
         ready: list[dict[str, Any]] = []
@@ -222,7 +229,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
             counts = collections.Counter(map(freeze_dict, duplicates))
             most_common, _ = counts.most_common(1)[0]
             ready.append(dict(most_common))
-    
+
         await self.bot.db.conn.executemany(
             f'''
             INSERT INTO tiles(
@@ -279,7 +286,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                 :text_type,
                 NULL,
                 ""
-            ) 
+            )
             ON CONFLICT(name, version) DO NOTHING;
             ''',
             ready
@@ -290,7 +297,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
 
         with open("data/editor_objectlist.lua", encoding="utf-8", errors="replace") as fp:
             data = fp.read()
-        
+
         start = data.find("editor_objlist = {")
         end = data.find("\n}", start)
         assert start > 0 and end > 0
@@ -337,7 +344,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                 active_color_y=active_y,
                 tags=tags
             ))
-        
+
         await self.bot.db.conn.executemany(
             f'''
             INSERT INTO tiles
@@ -354,9 +361,9 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                 :text_type,
                 NULL,
                 :tags
-            ) 
+            )
             ON CONFLICT(name, version)
-            DO UPDATE SET 
+            DO UPDATE SET
                 sprite=excluded.sprite,
                 source={repr(constants.BABA_WORLD)},
                 inactive_color_x=excluded.inactive_color_x,
@@ -395,7 +402,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                 source = path.parts[-1].split(".")[0]
                 with open(path, errors="replace", encoding="utf-8") as fp:
                     objects = [prepare(source, obj) for obj in json.load(fp)]
-                
+
                 await cur.executemany(
                     '''
                     INSERT INTO tiles
@@ -412,9 +419,9 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                         :text_type,
                         :text_direction,
                         :tags
-                    ) 
+                    )
                     ON CONFLICT(name, version)
-                    DO UPDATE SET 
+                    DO UPDATE SET
                         sprite=excluded.sprite,
                         source=excluded.source,
                         inactive_color_x=excluded.inactive_color_x,
@@ -446,9 +453,9 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                         :text_type,
                         :text_direction,
                         :tags
-                    ) 
+                    )
                     ON CONFLICT(name, version)
-                    DO UPDATE SET 
+                    DO UPDATE SET
                         sprite=excluded.sprite,
                         source=excluded.source,
                         inactive_color_x=excluded.inactive_color_x,
@@ -504,7 +511,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
             data = TileData.from_row(row)
             if data.sprite not in ignored:
                 await self.load_letter(
-                    data.sprite, 
+                    data.sprite,
                     data.text_type # type: ignore
                 )
 
@@ -522,12 +529,12 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
         # Background plates for type-2 text,
         # in 1 bit per pixel depth
         plates = [self.bot.db.plate(None, i)[0].getchannel("A").convert("1") for i in range(3)]
-        
+
         # Maps each character to three bounding boxes + images
         # (One box + image for each frame of animation)
         # char_pos : [((x1, y1, x2, y2), Image), ...]
         char_sizes: dict[tuple[int, str], Any] = {}
-        
+
         # Scrape the sprites for the sprite characters in each of the three frames
         for i, plate in enumerate(plates):
             # Get the alpha channel in 1-bit depth
@@ -535,7 +542,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                 .convert("RGBA") \
                 .getchannel("A") \
                 .convert("1")
-            
+
             # Type-2 text has inverted text on a background plate
             if tile_type == 2:
                 alpha = ImageChops.invert(alpha)
@@ -548,7 +555,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
 
             # Flags
             skip = False
-            
+
             # More than 1 bit per pixel is required for the flood fill
             alpha = alpha.convert("L")
             for i, char in enumerate(chars):
@@ -571,8 +578,8 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                     ImageDraw.floodfill(clone, (x, y), 128) # 1 placeholder
                     clone = Image.eval(clone, lambda x: 255 if x == 128 else 0)
                     clone = clone.convert("1")
-                    
-                    # Get bounds of character blob 
+
+                    # Get bounds of character blob
                     x1, y1, x2, y2 = clone.getbbox() # type: ignore
                     # Run some checks
                     # # Too wide => Skip 2 characters (probably merged two chars)
@@ -580,7 +587,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                     #     skip = True
                     #     alpha = ImageChops.difference(alpha, clone)
                     #     continue
-                    
+
                     # Too tall? Scrap the rest of the characters
                     if y2 - y1 > 1.5 * alpha.height / (1 + two_rows):
                         break
@@ -589,7 +596,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
                     if x2 - x1 <= 2:
                         alpha = ImageChops.difference(alpha, clone)
                         continue
-                    
+
                     # Remove character from sprite, push to char_sizes
                     alpha = ImageChops.difference(alpha, clone)
                     clone = clone.crop((x1, y1, x2, y2))
@@ -626,7 +633,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
             VALUES (?, ?, ?, ?, ?, ?);
             ''',
             results
-        )   
+        )
 
     async def load_ready_letters(self):
         def channel_shenanigans(im: Image.Image) -> Image.Image:
@@ -676,7 +683,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
             # urgent
             await guild.leave()
             return
-        
+
         bots = await self.bot.db.conn.fetchall(
             '''
             SELECT COUNT(*) FROM guilds WHERE guild_id = ?;
@@ -746,7 +753,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
     async def addsprite(self, ctx: Context, pack_name: str, color_x: int = 0, color_y: int = 3, tiling: int = -1):
         '''Adds sprites to a specified sprite pack'''
         zip = zipfile.ZipFile(BytesIO(await ctx.message.attachments[0].read()))
-        sprite_name = re.match(r'(?:.+/)?(.+?)(?:\_\d)*\.png', zip.namelist()[0]).groups()[0]   
+        sprite_name = re.match(r'(?:.+/)?(.+?)(?:\_\d)*\.png', zip.namelist()[0]).groups()[0]
         if not os.path.isdir(f"data/sprites/{pack_name}") or not os.path.isfile(f"data/custom/{pack_name}.json"):
             return await ctx.error(f"Pack {pack_name} doesn't exist.")
         for name in zip.namelist():
