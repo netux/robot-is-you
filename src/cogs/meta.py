@@ -30,7 +30,7 @@ class PrettyHelpCommand(commands.DefaultHelpCommand):
 
         for page in self.paginator.pages:
             formatted = discord.Embed(color=self.embed_color)
-            
+
             split = page.split("**")
             if len(split) == 1:
                 formatted.description = page
@@ -42,21 +42,21 @@ class PrettyHelpCommand(commands.DefaultHelpCommand):
                 for segment in split:
                     if segment.strip() == "":
                         continue
-                    
+
                     title = segment
                     content = next(split)
 
                     formatted.add_field(name=title, value=content, inline=inline)
 
             formatted.set_footer(text=note)
-            
+
             await destination.send(embed=formatted)
 
     def add_indented_commands(self, commands: list[commands.Command], *, heading: str, max_size: int | None = None):
         if not commands:
             return
 
-        self.paginator.add_line()    
+        self.paginator.add_line()
         self.paginator.add_line(heading)
         max_size = max_size or self.get_max_size(commands)
 
@@ -75,7 +75,7 @@ class PrettyHelpCommand(commands.DefaultHelpCommand):
             self.paginator.add_line(
                 "[Support this bot!](https://liberapay.com/RocketRace/) "
                 "Donations go towards server costs and other essential needs."
-                "Thank you so much! \U0001f496", 
+                "Thank you so much! \U0001f496",
                 empty=True
             )
 
@@ -99,7 +99,7 @@ class PrettyHelpCommand(commands.DefaultHelpCommand):
     def get_ending_note(self) -> str:
         """Returns help command's ending note. This is mainly useful to override for i18n purposes."""
         command_name = self.invoked_with
-        return "Type {0}{1} command for more info on a command.".format(self.clean_prefix, command_name)
+        return "Type {0}{1} command for more info on a command.".format(self.context.clean_prefix, command_name)
 
     def get_command_signature(self, command: commands.Command) -> str:
         parent = command.full_parent_name
@@ -112,7 +112,7 @@ class PrettyHelpCommand(commands.DefaultHelpCommand):
         else:
             alias = command.name if not parent else parent + ' ' + command.name
 
-        return '`%s%s %s`' % (self.clean_prefix, alias, command.signature)
+        return '`%s%s %s`' % (self.context.clean_prefix, alias, command.signature)
 
 class MetaCog(commands.Cog, name="Other Commands"):
     def __init__(self, bot: Bot):
@@ -133,9 +133,9 @@ class MetaCog(commands.Cog, name="Other Commands"):
         Displays bot information.
         """
         about_embed = discord.Embed(
-            title="About This Bot", 
-            type="rich", 
-            colour=self.bot.embed_color, 
+            title="About This Bot",
+            type="rich",
+            colour=self.bot.embed_color,
             description=(
                 f"{ctx.me.name} - Bot for Discord based on the indie game Baba Is You. "
                 "Written by RocketRace#0798.\n"
@@ -152,7 +152,7 @@ class MetaCog(commands.Cog, name="Other Commands"):
         ut = datetime.utcnow() - self.bot.started
         guild_count = await self.bot.db.conn.fetchone(
             '''
-            SELECT COUNT(*) FROM guilds;    
+            SELECT COUNT(*) FROM guilds;
             '''
         )
         stats = "".join([
@@ -169,7 +169,7 @@ class MetaCog(commands.Cog, name="Other Commands"):
             "Modders and spriters in the [unofficial Baba Is You discord server](https://discord.gg/GGbUUse) (custom sprites and levelpacks)",
         ]))
         await ctx.send(embed=about_embed)
-    
+
     @commands.command(aliases=["pong"])
     @commands.cooldown(5, 8, commands.BucketType.channel)
     async def ping(self, ctx: Context):
@@ -215,16 +215,16 @@ class MetaCog(commands.Cog, name="Other Commands"):
     @commands.cooldown(5, 8, type=commands.BucketType.channel)
     async def babalang(self, ctx: Context, program: str, *program_input: str):
         '''Interpret a [Babalang v1.1.1](https://esolangs.org/wiki/Babalang) program.
-        
+
         The first argument must be the source code for the program, escaped in quotes:
-        
+
         * e.g. `"baba is group and word and text"`
 
         The second argument is the optional input, also escaped in quotes:
 
         * e.g. `"foo bar"`
 
-        Both arguments can be multi-line. The input argument will be automatically padded 
+        Both arguments can be multi-line. The input argument will be automatically padded
         with trailing newlines as necessary.
         '''
         prog_input = program_input
@@ -239,7 +239,7 @@ class MetaCog(commands.Cog, name="Other Commands"):
         def interpret_babalang():
             try:
                 process = run(
-                    ["./src/babalang",  "-c", f"'{program}'"], 
+                    ["./src/babalang",  "-c", f"'{program}'"],
                     stdout=PIPE,
                     stderr=STDOUT,
                     timeout=1.0,
@@ -291,21 +291,21 @@ class MetaCog(commands.Cog, name="Other Commands"):
             await self.bot.wait_for("ready", timeout=60.0)
         except asyncio.TimeoutError:
             err = discord.Embed(
-                title="Disconnect", 
-                type="rich", 
-                description=f"{self.bot.user.mention} (instance {self.bot.instance_id}) has disconnected.", 
+                title="Disconnect",
+                type="rich",
+                description=f"{self.bot.user.mention} (instance {self.bot.instance_id}) has disconnected.",
                 color=0xff8800
             )
-        else: 
+        else:
             err = discord.Embed(
-                title="Reconnected", 
-                type="rich", 
-                description=f"{self.bot.user.mention} (instance {self.bot.instance_id}) has reconnected. Downtime: {str(round(time() - start, 2))} seconds.", 
+                title="Reconnected",
+                type="rich",
+                description=f"{self.bot.user.mention} (instance {self.bot.instance_id}) has reconnected. Downtime: {str(round(time() - start, 2))} seconds.",
                 color=0xffff00
             )
         webhook = discord.Webhook.from_url(self.bot.webhook_url, adapter=discord.AsyncWebhookAdapter(self.bot.session))
         await webhook.send(embed=err)
-    
+
     def cog_unload(self):
         self.bot.help_command = self._original_help_command
 
