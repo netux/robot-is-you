@@ -711,7 +711,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
         webhook = discord.Webhook.from_url(self.bot.webhook_url, adapter=discord.AsyncWebhookAdapter(self.bot.session))
         embed = discord.Embed(
             color = self.bot.embed_color,
-            title = f"Instance {self.bot.instance_id}: {self.bot.user} Joined Guild",
+            title = f"{self.bot.user} Joined Guild",
             description = f"Joined {guild.name} (guild #{len(self.bot.guilds)})."
         )
         embed.add_field(name="ID", value=str(guild.id))
