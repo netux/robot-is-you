@@ -1,7 +1,6 @@
 auth.py
 log.txt
 .DS_Store
-.vscode/
 target/renders/*
 target/letters/big/*
 target/letters/small/*
