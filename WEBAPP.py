@@ -15,7 +15,6 @@ from src.web.util import RenderTilesOptions, render_tiles
 from src.web.context import teardown_appcontext
 
 app = Quart(__name__, template_folder="src/web/templates", static_folder="src/web/static")
-load_thread = None
 load_done = False
 
 def not_ready_fallback(f):
@@ -45,22 +44,29 @@ def coerce_request_arg_to_int(value: str | None) -> int | None:
 	except ValueError:
 		return None
 
-results_map: dict[str, tempfile.TemporaryFile] = {}
-remove_thread = None
+@dataclasses.dataclass
+class GeneratedTiles:
+	prompt: str
+	uuid: str
+	tmp: tempfile.TemporaryFile
+
+uuid_to_generated_tiles_map: dict[uuid.UUID, GeneratedTiles] = {}
+prompt_to_last_uuid_map: dict[str, uuid.UUID] = {}
+
 remove_scheduled = set()
 
 @app.route("/results/<uuid:uuid>", methods=["GET"])
 async def results(uuid: str):
-	tmp = results_map.get(uuid, None)
+	generated_tiles = uuid_to_generated_tiles_map.get(uuid, None)
 
-	if tmp is None:
+	if generated_tiles is None:
 		response = await make_response("Invalid UUID")
 		response.status_code = 400
 		return response
 
 
-	blob = tmp.read()
-	tmp.seek(0)
+	blob = generated_tiles.tmp.read()
+	generated_tiles.tmp.seek(0)
 	remove_scheduled.add(uuid)
 
 	response = await make_response(blob)
@@ -109,30 +115,38 @@ class WebappRenderTilesOptions:
 @app.route("/text", methods=["GET", "POST"])
 @not_ready_fallback
 async def text():
-	image_uuid = None
-	objects = request.args.get("objects", None)
+	generated_tiles = None
+	prompt = request.args.get("objects", None)
 	options = WebappRenderTilesOptions.from_request(request)
 	error_msg = None
 	status_code = 200
 
-	if objects is not None:
-		try:
-			r = await render_tiles(objects, is_rule=True, options=options.to_base_options())
-			buffer = r.buffer
-		except errors.WebappUserError as err:
-			error_msg = err.args[0]
-			status_code = 400
-		else:
-			tmp = tempfile.TemporaryFile("br+")
-			tmp.write(buffer.read())
-			tmp.seek(0)
+	if prompt is not None:
+		if prompt not in prompt_to_last_uuid_map or prompt_to_last_uuid_map[prompt] not in uuid_to_generated_tiles_map:
+			try:
+				r = await render_tiles(prompt, is_rule=True, options=options.to_base_options())
+				buffer = r.buffer
+			except errors.WebappUserError as err:
+				error_msg = err.args[0]
+				status_code = 400
+			else:
+				tmp = tempfile.TemporaryFile("br+")
+				tmp.write(buffer.read())
+				tmp.seek(0)
 
-			image_uuid = uuid.uuid4()
-			results_map[image_uuid] = tmp
+				generated_tiles = GeneratedTiles(
+					prompt=prompt,
+					uuid=uuid.uuid4(),
+					tmp=tmp
+				)
+				uuid_to_generated_tiles_map[generated_tiles.uuid] = generated_tiles
+				prompt_to_last_uuid_map[prompt] = generated_tiles.uuid
+		else:
+			generated_tiles = uuid_to_generated_tiles_map[prompt_to_last_uuid_map[prompt]]
 
 	response = await make_response(await render_template("text.html",
-		objects=objects,
-		image_uuid=image_uuid,
+		objects=prompt,
+		generated_tiles=generated_tiles,
 		options=options,
 		error_msg=error_msg
 	))
@@ -158,6 +172,7 @@ async def remove_loop():
 		await asyncio.sleep(1)
 		cnt += 1
 
+		# TODO(netux): make configurable
 		if cnt >= 60 * 60:
 			cnt = 0
 			tmp_scheduled = remove_scheduled
@@ -165,7 +180,7 @@ async def remove_loop():
 			try:
 				print("Removing", tmp_scheduled)
 				while (uuid := tmp_scheduled.pop()):
-					tmp = results_map.pop(uuid)
+					tmp = uuid_to_generated_tiles_map.pop(uuid)
 					tmp.close()
 			except KeyError:
 				# set is empty
