@@ -1,43 +1,22 @@
 from __future__ import annotations
 
 import asyncio
-import atexit
 import uuid
 import tempfile
 import dataclasses
-from time import sleep
 from typing import Optional
 
-import flask
-from flask import Flask, g, render_template, request, make_response
-from flaskthreads import AppContextThread
+import quart
+from quart import Quart, render_template, request, make_response
 
 from src import errors
 from src.web.load import load
 from src.web.util import RenderTilesOptions, render_tiles
-from src.web.context import teardown_global_appcontext
+from src.web.context import teardown_appcontext
 
-app = Flask(__name__, template_folder="src/web/templates", static_folder="src/web/static")
+app = Quart(__name__, template_folder="src/web/templates", static_folder="src/web/static")
 load_thread = None
 load_done = False
-
-def teardown():
-	global load_thread, remove_thread
-
-	print("Running teardown")
-	with app.app_context() as ctx:
-		teardown_global_appcontext()
-	print("Global appcontext teardown'd")
-	if load_thread is not None:
-		load_thread.join(0)
-		print("load_thread join'd")
-	if remove_thread is not None:
-		remove_thread.join(0)
-		print("remove_thread join'd")
-	print("Bye")
-
-atexit.register(teardown)
-
 
 def not_ready_fallback(f):
 	async def wrapper(*args, **kwargs):
@@ -46,7 +25,7 @@ def not_ready_fallback(f):
 		if load_done:
 			return await f(*args, **kwargs)
 		else:
-			return render_template("loading.html")
+			return await render_template("loading.html")
 	return wrapper
 
 
@@ -71,11 +50,11 @@ remove_thread = None
 remove_scheduled = set()
 
 @app.route("/results/<uuid:uuid>", methods=["GET"])
-def results(uuid: str):
+async def results(uuid: str):
 	tmp = results_map.get(uuid, None)
 
 	if tmp is None:
-		response = make_response("Invalid UUID")
+		response = await make_response("Invalid UUID")
 		response.status_code = 400
 		return response
 
@@ -84,7 +63,7 @@ def results(uuid: str):
 	tmp.seek(0)
 	remove_scheduled.add(uuid)
 
-	response = make_response(blob)
+	response = await make_response(blob)
 	response.headers.add('Content-Type', 'image/gif')
 	return response
 
@@ -114,7 +93,7 @@ class WebappRenderTilesOptions:
 		return RenderTilesOptions(**opts)
 
 	@classmethod
-	def from_request(Cls, request: flask.Request):
+	def from_request(Cls, request: quart.Request):
 		get = lambda name: request.args.get(name, None)
 
 		return Cls(
@@ -151,7 +130,7 @@ async def text():
 			image_uuid = uuid.uuid4()
 			results_map[image_uuid] = tmp
 
-	response = make_response(render_template("text.html",
+	response = await make_response(await render_template("text.html",
 		objects=objects,
 		image_uuid=image_uuid,
 		options=options,
@@ -160,22 +139,23 @@ async def text():
 	response.status_code = status_code
 	return response
 
-def load_sync():
+async def do_load():
 	global load_done
 
 	load_done = False
-	asyncio.run(load())
+	async with app.app_context():
+		await load()
 	load_done = True
 
 # This is terrible
 # Is there a better way to do this?
-def remove_loop():
+async def remove_loop():
 	global remove_scheduled
 
 	cnt = 0
 
 	while True:
-		sleep(1)
+		await asyncio.sleep(1)
 		cnt += 1
 
 		if cnt >= 60 * 60:
@@ -183,6 +163,7 @@ def remove_loop():
 			tmp_scheduled = remove_scheduled
 			remove_scheduled = set()
 			try:
+				print("Removing", tmp_scheduled)
 				while (uuid := tmp_scheduled.pop()):
 					tmp = results_map.pop(uuid)
 					tmp.close()
@@ -190,9 +171,24 @@ def remove_loop():
 				# set is empty
 				pass
 
-with app.app_context():
-	load_thread = AppContextThread(target=load_sync)
-	load_thread.start()
+if __name__ == "__main__":
+	loop = asyncio.new_event_loop()
 
-	remove_thread = AppContextThread(target=remove_loop)
-	remove_thread.start()
+	loop.create_task(do_load())
+	loop.create_task(remove_loop())
+
+	@app.teardown_appcontext
+	async def teardown(err):
+		await teardown_appcontext(err)
+
+	try:
+		# TODO(netux): With this setup, the reloader in debug mode just exits the process.
+		# Figure out a way to reload the module instead.
+		app.run(loop=loop, use_reloader=False)
+	except KeyboardInterrupt:
+		pass
+	finally:
+		print("Shutting down...")
+		loop.stop()
+		loop.close()
+

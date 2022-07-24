@@ -16,15 +16,10 @@
 			"name": "WEBAPP IS DEBUG",
 			"type": "python",
 			"request": "launch",
-			"module": "flask",
+			"program": "${workspaceFolder}/WEBAPP.py",
 			"env": {
-				"FLASK_APP": "WEBAPP.py",
-				"FLASK_ENV": "development"
+				"QUART_ENV": "development"
 			},
-			"args": [
-				"run",
-				"--no-debugger"
-			],
 			"jinja": true,
 			"justMyCode": true
 		}
