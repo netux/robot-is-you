@@ -3,7 +3,7 @@ class BabaError(Exception):
 
 class SplittingException(BabaError):
     '''Couldn't split `text_a,b,c` ... somehow
-    
+
     args: cause
     '''
 
@@ -15,7 +15,7 @@ class BadTileProperty(BabaError):
 
 class TileNotFound(BabaError):
     '''Unknown tile
-    
+
     args: tile
     '''
 
@@ -24,20 +24,20 @@ class EmptyTile(BabaError):
 
 class EmptyVariant(BabaError):
     '''Empty variants not allowed
-    
+
     args: tile
     '''
 
 # === Variants ===
 class VariantError(BabaError):
     '''Base class for variants
-    
+
     args: tile, variant
     '''
 
 class BadMetaVariant(VariantError):
     '''Too deep
-    
+
     extra args: depth
     '''
 
@@ -47,7 +47,7 @@ class BadPaletteIndex(VariantError):
 # TODO: more specific errors for this
 class BadTilingVariant(VariantError):
     '''Variant doesn't match tiling
-    
+
     extra args: tiling
     '''
 
@@ -66,7 +66,7 @@ class UnknownVariant(VariantError):
 # === Custom text ===
 class TextGenerationError(BabaError):
     '''Base class for custom text
-    
+
     extra args: text
     '''
 
@@ -81,7 +81,7 @@ class LeadingTrailingLineBreaks(TextGenerationError):
 
 class BadCharacter(TextGenerationError):
     '''Invalid character in text
-    
+
     Extra args: mode, char
     '''
 
@@ -92,7 +92,7 @@ class CustomTextTooLong(TextGenerationError):
 
 class OperationError(BabaError):
     '''Bad operation
-    
+
     args: operation, position, tile
     '''
 
@@ -101,3 +101,10 @@ class MovementOutOfFrame(OperationError):
 
 class OperationNotFound(OperationError):
     '''does not exist'''
+
+# === Webapp ===
+class WebappUserError(BabaError):
+    '''Invalid or malformed input, mostly
+
+    args: error reported to the user
+    '''

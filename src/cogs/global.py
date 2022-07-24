@@ -105,7 +105,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
             )
         else:
             return await ctx.error(f"{msg}.")
-    
+
     async def handle_operation_errors(self, ctx: Context, err: errors.OperationError):
         '''Handle errors raised in a command context by operation macros'''
         operation, pos, tile, *rest = err.args
@@ -129,7 +129,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
         await ctx.typing()
         start = time()
         tiles = objects.lower().strip()
-        
+
         # replace emoji with their :text: representation
         builtin_emoji = {
             ord("\u24dc"): ":m:", # lower case circled m
@@ -140,14 +140,14 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
         }
         tiles = tiles.translate(builtin_emoji)
         tiles = re.sub(r'<a?(:[a-zA-Z0-9_]{2,32}:)\d{1,21}>', r'\1', tiles)
-        
+
         # ignore all these
         tiles = tiles.replace("```\n", "").replace("\\", "").replace("`", "")
 
         # Determines if this should be a spoiler
         spoiler = tiles.count("||") >= 2
         tiles = tiles.replace("|", "")
-        
+
         # Check for empty input
         if not tiles:
             return await ctx.error("Input cannot be blank.")
@@ -194,7 +194,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
             frame_count = int(match.group(2))
             if frame_count < 1 or frame_count > 3:
                 return await ctx.error(f"The frame count must be 1, 2 or 3.")
-        
+
         # Clean up
         for pattern in flag_patterns:
             tiles = re.sub(pattern, " ", tiles)
@@ -213,10 +213,10 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                 except UnicodeDecodeError:
                     await ctx.error("The file contains invalid UTF-8. Make sure it's not corrupt.")
 
-        
+
         # Split input into lines
         rows = tiles.splitlines()
-        
+
         expanded_tiles: dict[tuple[int, int, int], list[RawTile]] = {}
         previous_tile: list[RawTile] = []
         # Do the bulk of the parsing here:
@@ -231,7 +231,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                 return await ctx.error(f"Invalid character `{e.char}` in row {y}, around `... {row[e.column - 5: e.column + 5]} ...`")
             except lark.UnexpectedToken as e:
                 mistake_kind = e.match_examples(
-                    self.lark.parse, 
+                    self.lark.parse,
                     {
                         "unclosed": [
                             "(baba",
@@ -262,7 +262,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                     return await ctx.error(f"Invalid syntax in row {y}, around {around}.")
             except lark.UnexpectedEOF as e:
                 return await ctx.error(f"Unexpected end of input in row {y}.")
-            for line in tree.children: 
+            for line in tree.children:
                 line: Tree
                 line_text_mode: bool | None = None
                 line_variants: list[str] = []
@@ -275,29 +275,29 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                     line_text_mode = True
                 elif line.data == "tile_block":
                     line_text_mode = False
-                
+
                 if line.data in ("text_block", "tile_block", "any_block"):
-                    *stacks, variants = line.children 
+                    *stacks, variants = line.children
                     variants: Tree
-                    for variant in variants.children: 
+                    for variant in variants.children:
                         variant: Token
                         line_variants.append(variant.value)
                 else:
                     stacks = line.children
-                
-                for stack in stacks: 
+
+                for stack in stacks:
                     stack: Tree
 
                     blobs: list[tuple[bool | None, list[str], Tree]] = []
 
                     if stack.data == "blob_stack":
                         for variant_blob in stack.children:
-                            blob, variants = variant_blob.children 
+                            blob, variants = variant_blob.children
                             blob: Tree
                             variants: Tree
-                            
+
                             blob_text_mode: bool | None = None
-                            
+
                             stack_variants = []
                             for variant in variants.children:
                                 variant: Token
@@ -306,27 +306,27 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                                 blob_text_mode = True
                             elif blob.data == "tile_blob":
                                 blob_text_mode = False
-                            
+
                             blobs.append((blob_text_mode, stack_variants, blob))
                     else:
-                        blobs = [(None, [], stack)] 
+                        blobs = [(None, [], stack)]
 
                     for blob_text_mode, stack_variants, blob in blobs:
-                        for process in blob.children: 
+                        for process in blob.children:
                             process: Tree
                             t = 0
 
-                            unit, *changes = process.children 
+                            unit, *changes = process.children
                             unit: Tree
                             changes: list[Tree]
-                            
-                            object, variants = unit.children 
+
+                            object, variants = unit.children
                             object: Token
                             obj = object.value
                             variants: Tree
-                            
+
                             final_variants: list[str] = [
-                                var.value 
+                                var.value
                                 for var in variants.children
                             ]
 
@@ -367,7 +367,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                             for change in changes:
                                 if change.data == "transform":
                                     last_hack = False
-                                    seq, unit = change.children 
+                                    seq, unit = change.children
                                     seq: str
 
                                     count = len(seq)
@@ -377,18 +377,18 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                                         still = previous_tile[-1]
                                     else:
                                         previous_tile[-1:] = [still]
-                                    
+
                                     for dt in range(count):
                                         expanded_tiles.setdefault((x + dx, y + dy, t + dt), []).append(still)
-                                        
-                                    object, variants = unit.children 
+
+                                    object, variants = unit.children
                                     object: Token
                                     obj = object.value
                                     obj = handle_text_mode(obj)
-                                    
+
                                     final_variants = [var.value for var in variants.children]
                                     append_extra_variants(final_variants)
-                                    
+
                                     temp_tile.append(
                                         RawTile(
                                             obj,
@@ -400,7 +400,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
 
                                 elif change.data == "operation":
                                     last_hack = True
-                                    oper = change.children[0] 
+                                    oper = change.children[0]
                                     oper: Token
                                     try:
                                         ddx, ddy, dt = self.bot.operation_macros.expand_into(
@@ -441,7 +441,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                     expanded_tiles[x, y, t + 1] = tile_stack
                 else:
                     expanded_tiles[x, y, t + 1] = tile_stack + expanded_tiles[x, y, t + 1]
-                    
+
         # filter out blanks before rendering
         expanded_tiles = {index: [tile for tile in stack if not tile.is_empty] for index, stack in expanded_tiles.items()}
         expanded_tiles = {index: stack for index, stack in expanded_tiles.items() if len(stack) != 0}
@@ -456,7 +456,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
             return await ctx.error(f"Too high ({height}). You may only render scenes up to {constants.MAX_HEIGHT} tiles tall.")
         if duration > constants.MAX_DURATION:
             return await ctx.error(f"Too many frames ({duration}). You may only render scenes with up to {constants.MAX_DURATION} animation frames.")
-        
+
         try:
             # Handles variants based on `:` affixes
             buffer = BytesIO()
@@ -484,7 +484,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                 grid_size=(width, height),
                 duration=duration,
                 palette=palette,
-                background=background, 
+                background=background,
                 out=buffer,
                 delay=delay,
                 frame_count=frame_count,
@@ -514,7 +514,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
             return await self.handle_variant_errors(ctx, e)
         except errors.TextGenerationError as e:
             return await self.handle_custom_text_errors(ctx, e)
-        
+
         filename = datetime.utcnow().strftime(r"render_%Y-%m-%d_%H.%M.%S.gif")
         delta = time() - start
         msg = f"*Rendered in {delta:.2f} s*"
@@ -523,13 +523,14 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
             await ctx.reply(content=f'{msg}\n*Raw files:*', files=[discord.File(extra_buffer, filename=f"{raw_name}.zip"),discord.File(buffer, filename=filename, spoiler=spoiler)])
         else:
             await ctx.reply(content=msg, file=discord.File(buffer, filename=filename, spoiler=spoiler))
-        
+
 
     @commands.command(aliases=["text"])
     @commands.cooldown(5, 8, type=commands.BucketType.channel)
     async def rule(self, ctx: Context, *, objects: str = ""):
-        '''Renders the text tiles provided. 
-        
+        # TODO(netux): move to WEBAPP
+        '''Renders the text tiles provided.
+
         If not found, the bot tries to auto-generate them! (See the `make` command for more.)
 
         **Flags**
@@ -539,22 +540,22 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
         * `--letter` (`-L`): Enables letter mode. Custom text that has 2 letters in it will be rendered in "letter" mode.
         * `--delay=<...>` (`-D=<...>`): Alter the delay (in milliseconds) between frames.
         * `--frames=<...>` (`-F=<...>`): How many wobble frames will be shown? (1, 2 or 3)
-        
+
         **Variants, Operations & Transformations**
         * `:variant`: Append `:variant` to a tile to change color or sprite of a tile. See the `variants` command for more.
         * `!operation`: Apply a macro operation to a tile. See the `operations` command for more.
         * `>`: Transform the tile on the left to the tile on the right! Examples: `baba>keke`, `rock>>>flag>dust>>-`
 
         **Useful tips:**
-        * `-` : Shortcut for an empty tile. 
+        * `-` : Shortcut for an empty tile.
         * `&` : Stacks tiles on top of each other.
         * `tile_` : `tile_object` renders regular objects.
         * `,` : `tile_x,y,...` is expanded into `tile_x tile_y ...`
-        * `||` : Marks the output gif as a spoiler. 
+        * `||` : Marks the output gif as a spoiler.
         * `(baba keke)` groups tiles together, for easier variants
         * `"baba is you"` makes all the tiles inside text
         * `[baba keke me]` makes all the tiles inside objects
-        
+
         **Example commands:**
         `rule baba is you`
         `rule -B rock is ||push||`
@@ -567,6 +568,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
     @commands.command()
     @commands.cooldown(5, 8, type=commands.BucketType.channel)
     async def tile(self, ctx: Context, *, objects: str = ""):
+        # TODO(netux): move to WEBAPP
         '''Renders the tiles provided.
 
        **Flags**
@@ -583,12 +585,12 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
         * `>`: Transform the tile on the left to the tile on the right! Examples: `baba>keke`, `rock>>>flag>dust>>-`
 
         **Useful tips:**
-        * `-` : Shortcut for an empty tile. 
+        * `-` : Shortcut for an empty tile.
         * `&` : Stacks tiles on top of each other.
         * `text_` : `text_object` renders text objects.
         * `,` : `text_x,y,...` is expanded into `text_x text_y...`
-        * `||` : Marks the output gif as a spoiler. 
-        
+        * `||` : Marks the output gif as a spoiler.
+
         **Example commands:**
         `tile baba - keke`
         `tile --palette=marshmallow keke:d baba:s`
@@ -600,7 +602,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
 
     async def search_levels(self, query: str, **flags: Any) -> list[tuple[tuple[str, str], LevelData]]:
         '''Finds levels by query.
-        
+
         Flags:
         * `map`: Which map screen the level is from.
         * `world`: Which levelpack / world the level is from.
@@ -615,8 +617,8 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
             if len(parts) == 2:
                 await cur.execute(
                     '''
-                    SELECT * FROM levels 
-                    WHERE 
+                    SELECT * FROM levels
+                    WHERE
                         world == :world AND
                         id == :id AND (
                             :f_map IS NULL OR LOWER(parent) == LOWER(:f_map)
@@ -634,13 +636,13 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                         levels.append(((data.world, data.id), data))
 
 
-            # This system ensures that baba worlds are 
+            # This system ensures that baba worlds are
             # *always* prioritized over modded worlds,
             # even if the modded query belongs to a higher tier.
-            # 
-            # A real example of the naive approach failing is 
+            #
+            # A real example of the naive approach failing is
             # with the query "map", matching `baba/106level` by name
-            # and `alphababa/map` by level ID. Even though name 
+            # and `alphababa/map` by level ID. Even though name
             # matches are lower priority than ID matches, we want
             # ths to return `baba/106level` first.
             maybe_parts = query.split(" ", 1)
@@ -668,22 +670,22 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                     ) AND (
                         :f_world IS NULL OR LOWER(world) == LOWER(:f_world)
                     )
-                    ORDER BY CASE world 
+                    ORDER BY CASE world
                         WHEN :default
-                        THEN NULL 
+                        THEN NULL
                         WHEN :museum
                         THEN ""
                         WHEN :new_adv
                         THEN ""
-                        ELSE world 
+                        ELSE world
                     END ASC;
                     ''',
                     dict(
-                        id=query, 
-                        f_map=f_map, 
-                        f_world=f_world, 
-                        default=constants.BABA_WORLD, 
-                        museum=constants.MUSEUM_WORLD, 
+                        id=query,
+                        f_map=f_map,
+                        f_world=f_world,
+                        default=constants.BABA_WORLD,
+                        museum=constants.MUSEUM_WORLD,
                         new_adv=constants.NEW_ADVENTURES_WORLD
                     )
                 )
@@ -692,23 +694,23 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                     if (data.world, data.id) not in found:
                         found.add((data.world, data.id))
                         levels.append(((data.world, data.id), data))
-                
+
                 # [parent]-[map_id]
                 segments = query.split("-")
                 if len(segments) == 2:
                     await cur.execute(
                         '''
-                        SELECT * FROM levels 
+                        SELECT * FROM levels
                         WHERE LOWER(parent) == LOWER(:parent) AND (
                             UNLIKELY(map_id == :map_id) OR (
-                                style == 0 AND 
+                                style == 0 AND
                                 CAST(number AS TEXT) == :map_id
                             ) OR (
                                 style == 1 AND
                                 LENGTH(:map_id) == 1 AND
                                 number == UNICODE(:map_id) - UNICODE("a")
                             ) OR (
-                                style == 2 AND 
+                                style == 2 AND
                                 SUBSTR(:map_id, 1, 5) == "extra" AND
                                 number == CAST(TRIM(SUBSTR(:map_id, 6)) AS INTEGER) - 1
                             )
@@ -716,23 +718,23 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                             :f_map IS NULL OR LOWER(parent) == LOWER(:f_map)
                         ) AND (
                             :f_world IS NULL OR LOWER(world) == LOWER(:f_world)
-                        ) ORDER BY CASE world 
+                        ) ORDER BY CASE world
                             WHEN :default
-                            THEN NULL 
+                            THEN NULL
                             WHEN :museum
                             THEN ""
                             WHEN :new_adv
                             THEN ""
-                            ELSE world 
+                            ELSE world
                         END ASC;
                         ''',
                         dict(
-                            parent=segments[0], 
-                            map_id=segments[1], 
-                            f_map=f_map, 
-                            f_world=f_world, 
+                            parent=segments[0],
+                            map_id=segments[1],
+                            f_map=f_map,
+                            f_world=f_world,
                             default=constants.BABA_WORLD,
-                            museum=constants.MUSEUM_WORLD, 
+                            museum=constants.MUSEUM_WORLD,
                             new_adv=constants.NEW_ADVENTURES_WORLD
                         )
                     )
@@ -751,22 +753,22 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                     ) AND (
                         :f_world IS NULL OR LOWER(world) == LOWER(:f_world)
                     )
-                    ORDER BY CASE world 
+                    ORDER BY CASE world
                         WHEN :default
-                        THEN NULL 
+                        THEN NULL
                         WHEN :museum
                         THEN ""
                         WHEN :new_adv
                         THEN ""
-                        ELSE world 
+                        ELSE world
                     END ASC;
                     ''',
                     dict(
-                        name=query, 
-                        f_map=f_map, 
-                        f_world=f_world, 
-                        default=constants.BABA_WORLD, 
-                        museum=constants.MUSEUM_WORLD, 
+                        name=query,
+                        f_map=f_map,
+                        f_world=f_world,
+                        default=constants.BABA_WORLD,
+                        museum=constants.MUSEUM_WORLD,
                         new_adv=constants.NEW_ADVENTURES_WORLD
                     )
                 )
@@ -786,24 +788,24 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                         :f_world IS NULL OR LOWER(world) == LOWER(:f_world)
                     )
                     ORDER BY COALESCE(
-                        CASE world 
+                        CASE world
                             WHEN :default
-                            THEN NULL 
+                            THEN NULL
                             WHEN :museum
                             THEN ""
                             WHEN :new_adv
                             THEN ""
-                            ELSE world 
+                            ELSE world
                         END,
                         INSTR(name, :name)
                     ) ASC, number DESC;
                     ''',
                     dict(
-                        name=query, 
-                        f_map=f_map, 
-                        f_world=f_world, 
-                        default=constants.BABA_WORLD, 
-                        museum=constants.MUSEUM_WORLD, 
+                        name=query,
+                        f_map=f_map,
+                        f_world=f_world,
+                        default=constants.BABA_WORLD,
+                        museum=constants.MUSEUM_WORLD,
                         new_adv=constants.NEW_ADVENTURES_WORLD
                     )
                 )
@@ -816,13 +818,13 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                 # [map_id]
                 await cur.execute(
                     '''
-                    SELECT * FROM levels 
+                    SELECT * FROM levels
                     WHERE LOWER(map_id) == LOWER(:map) AND parent IS NULL AND (
                         :f_map IS NULL OR LOWER(map_id) == LOWER(:f_map)
                     ) AND (
                         :f_world IS NULL OR LOWER(world) == LOWER(:f_world)
                     )
-                    ORDER BY CASE world 
+                    ORDER BY CASE world
                         WHEN :default
                         THEN NULL
                         ELSE world
@@ -835,7 +837,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                     if (data.world, data.id) not in found:
                         found.add((data.world, data.id))
                         levels.append(((data.world, data.id), data))
-        
+
         return levels
 
     @commands.cooldown(5, 8, commands.BucketType.channel)
@@ -866,16 +868,16 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
         * The map ID of a world (e.g. "cavern", or "lake")
         '''
         await self.perform_level_command(ctx, query, mobile=True)
-    
+
     async def perform_level_command(self, ctx: Context, query: str, *, mobile: bool):
         # User feedback
         await ctx.typing()
 
         custom_level: CustomLevelData | None = None
-        
+
         spoiler = query.count("||") >= 2
         fine_query = query.lower().strip().replace("|", "")
-        
+
         # [abcd-0123]
         if re.match(r"^[a-z0-9]{4}\-[a-z0-9]{4}$", fine_query) and not mobile:
             row = await self.bot.db.conn.fetchone(
@@ -887,7 +889,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
             if row is not None:
                 custom_level = CustomLevelData.from_row(row)
             else:
-                # Expensive operation 
+                # Expensive operation
                 await ctx.reply("Searching for custom level... this might take a while", mention_author=False)
                 await ctx.typing()
                 async with aiohttp.request("GET", f"https://baba-is-bookmark.herokuapp.com/api/level/exists?code={fine_query.upper()}") as resp:
@@ -922,7 +924,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
                     f"Subtitle: `{level.subtitle}`"
                 )
             mobile_exists = os.path.exists(f"target/renders/{level.world}_m/{level.id}.gif")
-            
+
             if not mobile and mobile_exists:
                 rows.append(
                     f"*This level is also on mobile, see `+level mobile {level.unique()}`*"
@@ -944,7 +946,7 @@ class GlobalCog(commands.Cog, name="Baba Is You"):
             path = level.unique()
             display = level.name
             rows = [
-                f"Name: ||`{display}`|| (by `{level.author}`)" 
+                f"Name: ||`{display}`|| (by `{level.author}`)"
                     if spoiler else f"Name: `{display}` (by `{level.author}`)",
                 f"Level code: `{path}`",
             ]

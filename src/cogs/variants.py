@@ -10,6 +10,7 @@ from .. import constants, errors
 from ..tile import FullTile, Grid, RawTile, TileFields
 
 if TYPE_CHECKING:
+    from ..db import Database
     from ...ROBOT import Bot
 
 HandlerFn = Callable[['HandlerContext'], TileFields]
@@ -18,7 +19,6 @@ DefaultFn = Callable[['DefaultContext'], TileFields]
 @dataclass
 class ContextBase:
     '''The context that the (something) was invoked in.'''
-    bot: Bot
     tile: RawTile
     grid: Grid[RawTile]
     position: tuple[int, int, int]
@@ -30,10 +30,10 @@ class ContextBase:
     def tile_data(self) -> TileData | None:
         '''Associated tile data'''
         return self.tile_data_cache.get(self.tile.name)
-    
+
     def is_adjacent(self, coordinate: tuple[int, int, int]) -> bool:
         '''Tile is next to a joining tile at this point in time.
-        
+
         Coordinate format: (x, y, t)
         '''
         x, y, t = coordinate
@@ -56,32 +56,32 @@ class DefaultContext(ContextBase):
     '''The context that a default factory was invoked in.'''
 
 class VariantHandlers:
-    def __init__(self, bot: Bot) -> None:
+    def __init__(self, db) -> None:
+        self.db = db
         self.handlers: list[Handler] = []
-        self.bot = bot
         self.default_fields: DefaultFn = lambda ctx: {}
         self.tile_data_cache: dict[str, TileData] = {}
 
     def handler(
-        self, 
-        *, 
+        self,
+        *,
         pattern: str,
         variant_hints: dict[str, str],
         variant_group: str | None = None,
         order: int | None = None
     ) -> Callable[[HandlerFn], Handler]:
         '''Registers a variant handler.
-        
+
         The decorated function should take one argument (`HandlerContext`) and return `TileFields`.
 
-        The handler is invoked when the variant matches `pattern`. If the pattern includes any 
+        The handler is invoked when the variant matches `pattern`. If the pattern includes any
         capturing groups, they are accessible at `HandlerContext.groups`.
 
         `variant_hints` is a dict of (variant : user-friendly representation) pairs.
-        Each variant should be valid for the handler. The representation should typically 
+        Each variant should be valid for the handler. The representation should typically
         be related to the variant provided, as it will be passed to the user. An empty
         dictionary should be passed to signify no hints.
-        
+
         `variant_group` is a key used to group variant handlers together. It should
         be a user-friendly string. If set to None, the handlers are hidden.
 
@@ -96,27 +96,27 @@ class VariantHandlers:
                 self.handlers.insert(order, handler)
             return handler
         return deco
-    
+
     def default(self, fn: DefaultFn):
         '''Registers a default field factory.
-        
+
         There can only be one factory.
-        
+
         The function should take no arguments and return a `TileFields`.
         Successive calls to this decorator will replace previous factories.
         '''
         self.default_fields = fn
-    
+
     def finalize(self, fn: Callable[[FullTile], None]):
         '''Registers a finalizer.
-        
+
         There can only be one.
         '''
         self.finalizer = fn
 
     def all_variants(self) -> list[str]:
         '''All the possible variants
-        
+
         tuples: (real string, representation string)
         '''
         return [
@@ -128,7 +128,7 @@ class VariantHandlers:
     def valid_variants(self, tile: RawTile, grid: Grid[RawTile], tile_data_cache: dict[str, TileData]) -> dict[str, list[str]]:
         '''Returns the variants that are valid for a given tile.
         This data is pulled from the handler's `hints` attribute.
-        
+
         The output is grouped by the variant group of the handler.
         '''
         out: dict[str, list[str]] = {}
@@ -139,7 +139,6 @@ class VariantHandlers:
                         groups = handler.match(variant)
                         if groups is not None:
                             mock_ctx = HandlerContext(
-                                bot=self.bot,
                                 fields={},
                                 groups=groups,
                                 variant=variant,
@@ -147,7 +146,7 @@ class VariantHandlers:
                                 grid=grid,
                                 position=(0, 0, 0),
                                 extras={},
-                                grid_size=(1,1), 
+                                grid_size=(1,1),
                                 tile_data_cache=tile_data_cache,
                                 flags=dict(disallow_custom_directions=True)
                             )
@@ -169,7 +168,6 @@ class VariantHandlers:
     ) -> FullTile:
         '''Take a RawTile and apply its variants to it'''
         default_ctx = DefaultContext(
-            bot=self.bot,
             tile=tile,
             grid=grid,
             position=position,
@@ -186,7 +184,6 @@ class VariantHandlers:
                 if groups is not None:
                     failed = False
                     ctx = HandlerContext(
-                        bot=self.bot,
                         fields=fields,
                         groups=groups,
                         variant=variant,
@@ -208,7 +205,7 @@ class VariantHandlers:
     async def handle_grid(self, grid: Grid[RawTile], grid_size: tuple[int, int], **flags: Any) -> Grid[FullTile]:
         '''Apply variants to a full grid of raw tiles'''
         tile_data_cache = {
-            data.name: data async for data in self.bot.db.tiles(
+            data.name: data async for data in self.db.tiles(
                 set(tile.name for stack in grid.values() for tile in stack),
                 maximum_version = flags.get("ignore_editor_overrides", 1000)
             )
@@ -238,13 +235,13 @@ class Handler:
 
     def match(self, variant: str) -> tuple[str, ...] | None:
         '''Can this handler take the variant?
-        
+
         Returns the matched groups if possible, else returns `None`.
         '''
         matches = re.fullmatch(self.pattern, variant)
         if matches is not None:
             return matches.groups()
-    
+
     def handle(self, ctx: HandlerContext) -> TileFields:
         '''Handle the variant'''
         return self.fn(ctx)
@@ -263,11 +260,7 @@ def join_variant(dir: int, anim: int) -> int:
     '''The sleeping animation is slightly inconvenient'''
     return (dir + anim) % 32
 
-async def setup(bot: Bot):
-    '''Get the variant handler instance'''
-    handlers = VariantHandlers(bot)
-    bot.variant_handlers = handlers
-
+def setup_default_variant_handlers(handlers: VariantHandlers):
     @handlers.default
     def default(ctx: DefaultContext) -> TileFields:
         '''Handles default colors, facing right, and auto-tiling'''
@@ -390,7 +383,7 @@ async def setup(bot: Bot):
                     "variant_number": join_variant(dir, anim)
                 }
         raise errors.BadTilingVariant(ctx.tile.name, ctx.variant, tiling)
-    
+
     @handlers.handler(
         pattern=r"|".join(constants.SOFT_ANIMATION_VARIANTS),
         variant_hints={},
@@ -407,7 +400,7 @@ async def setup(bot: Bot):
                     "variant_number": join_variant(dir, anim)
                 }
         return {}
-    
+
     @handlers.handler(
         pattern=r"|".join(constants.SLEEP_VARIANTS),
         variant_hints=constants.SLEEP_REPRESENTATION_VARIANTS,
@@ -538,7 +531,7 @@ async def setup(bot: Bot):
         return {
             "color_index": (int(ctx.groups[0]), int(ctx.groups[1]))
         }
-    
+
     @handlers.handler(
         pattern=r"#([0-9a-fA-F]{1,6})",
         variant_hints={"#ffffff": "`#hex_code` (Color hex code, e.g. `#f055ee`)"},
@@ -593,7 +586,7 @@ async def setup(bot: Bot):
         return {
             "meta_level": level + 1
         }
-    
+
     @handlers.handler(
         pattern=r"m(\d)",
         variant_hints={"m1": "`mX` (A specific meta depth, e.g. `m1`, `m3`)"},
@@ -626,7 +619,7 @@ async def setup(bot: Bot):
             "custom": True,
             "custom_style": "noun"
         }
-    
+
     @handlers.handler(
         pattern=r"letter|let",
         variant_hints={"let": "`letter` / `let` (Letter-style text)"},
@@ -641,7 +634,7 @@ async def setup(bot: Bot):
             "custom": True,
             "custom_style": "letter"
         }
-    
+
     @handlers.handler(
         pattern=r"property|prop",
         variant_hints={"prop": "`property` / `prop` (Property-style text)"},
@@ -699,7 +692,7 @@ async def setup(bot: Bot):
     )
     def face(ctx: HandlerContext) -> TileFields:
         return {"face": True}
-    
+
     @handlers.handler(
         pattern="blank",
         variant_hints={"blank": "`blank` (Pick out the shape of the sprite)"},
@@ -707,5 +700,12 @@ async def setup(bot: Bot):
     )
     def blank(ctx: HandlerContext) -> TileFields:
         return {"blank": True}
+
+async def setup(bot: Bot):
+    '''Get the variant handler instance'''
+    handlers = VariantHandlers(bot)
+    bot.variant_handlers = handlers
+
+    setup_default_variant_handlers(handlers)
 
     return handlers

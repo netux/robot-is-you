@@ -125,6 +125,7 @@ class OwnerCog(commands.Cog, name="Admin", command_attrs=dict(hidden=True)):
     @commands.command()
     @commands.is_owner()
     async def loaddata(self, ctx: Context):
+        # TODO(netux): copy on WEBAPP init code
         '''Reloads tile data from the world map, editor, and custom files.'''
         self.bot.loading = True
         await self.load_initial_tiles()

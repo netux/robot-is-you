@@ -214,6 +214,7 @@ class MetaCog(commands.Cog, name="Other Commands"):
     # @commands.command(aliases=["interpret"])
     @commands.cooldown(5, 8, type=commands.BucketType.channel)
     async def babalang(self, ctx: Context, program: str, *program_input: str):
+        # TODO(netux): move to WEBAPP
         '''Interpret a [Babalang v1.1.1](https://esolangs.org/wiki/Babalang) program.
 
         The first argument must be the source code for the program, escaped in quotes:

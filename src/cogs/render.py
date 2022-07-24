@@ -16,15 +16,16 @@ from ..utils import cached_open
 from ..save_transparent_gif import save_transparent_gif
 
 if TYPE_CHECKING:
+    from ..db import Database
     from ...ROBOT import Bot
 
 
 class Renderer:
-    '''This class exposes various image rendering methods. 
+    '''This class exposes various image rendering methods.
     Some of them require metadata from the bot to function properly.
     '''
-    def __init__(self, bot: Bot) -> None:
-        self.bot = bot
+    def __init__(self, db: Database) -> None:
+        self.db = db
 
     def recolor(self, sprite: Image.Image, rgb: tuple[int, int, int]) -> Image.Image:
         '''Apply rgb color multiplication (0-255)'''
@@ -60,7 +61,7 @@ class Renderer:
 
         `images` is a list of background image filenames. Each image is retrieved from `data/images/{image_source}/image`.
 
-        `background` is a palette index. If given, the image background color is set to that color, otherwise transparent. Background images overwrite this. 
+        `background` is a palette index. If given, the image background color is set to that color, otherwise transparent. Background images overwrite this.
         '''
         palette_img = Image.open(f"data/palettes/{palette}.png").convert("RGB")
         if background is not None:
@@ -90,10 +91,10 @@ class Renderer:
                 elif background is not None:
                     img = Image.new("RGBA", (img_width, img_height), color=background_color)
                 # neither
-                else: 
+                else:
                     img = Image.new("RGBA", (img_width, img_height))
                 imgs.append(img)
-        
+
         # keeping track of the amount of padding we can slice off
         pad_r=pad_u=pad_l=pad_d=0
         for (x, y, t), stack in grid.items():
@@ -112,7 +113,7 @@ class Renderer:
                     if y == height - 1:
                         pad_d = max(pad_d, y_offset)
                         alpha = sprite.getchannel("A")
-                    
+
                     alpha = sprite.getchannel("A")
                     if tile.mask_alpha:
                         sprite = Image.new("RGBA", sprite.size, background_color)
@@ -121,11 +122,11 @@ class Renderer:
                         sprite = Image.new("RGBA", sprite.size, background_color)
 
                     imgs[t * frame_count + frame].paste(
-                        sprite, 
+                        sprite,
                         (
                             x * constants.DEFAULT_SPRITE_SIZE + padding - x_offset,
                             y * constants.DEFAULT_SPRITE_SIZE + padding - y_offset
-                        ), 
+                        ),
                         mask=alpha
                     )
 
@@ -188,7 +189,7 @@ class Renderer:
                         sprite = cached_open(path_fallback, cache=sprite_cache, fn=Image.open).convert("RGBA")
                     else:
                         raise
-                
+
                 sprite = await self.apply_options_name(
                     tile.name,
                     sprite,
@@ -252,7 +253,7 @@ class Renderer:
         # Note however that this is unlikely to be an issue unless this
         # function takes input from unexpected sources, as even 8 ** 4000
         # is relatively okay to compute
-        # The default is low enough to prevent abuse, but high enough to 
+        # The default is low enough to prevent abuse, but high enough to
         # ensure that no actual text can be excluded.
         if len(raw) > constants.MAX_TEXT_LENGTH:
             raise errors.CustomTextTooLong(text)
@@ -260,7 +261,7 @@ class Renderer:
         if seed is None:
             seed = random.randint(0, 8 ** len(raw))
         seed_digits = [(seed >> 8 * i ) | 0b11111111 for i in range(len(raw))]
-        
+
         # Get mode and split status
         if newline_count > 1:
             raise errors.TooManyLines(text, newline_count)
@@ -275,20 +276,20 @@ class Renderer:
             if len(raw) >= 4:
                 mode = "small"
                 index = len(raw) - len(raw) // 2
-    
+
         if style == "letter":
             if mode == "big":
                 mode = "letter"
             else:
                 raise errors.BadLetterStyle(text)
-        
+
         if index == 0 or index == len(raw):
             raise errors.LeadingTrailingLineBreaks(text)
-        
+
         if len(raw) == 1 and raw in string.ascii_letters + string.digits:
             sprite = Image.open(f"data/sprites/baba/text_{raw}_0_{wobble + 1}.png").convert("RGBA")
             return self.apply_options(
-                sprite, 
+                sprite,
                 original_style="noun",
                 style=style,
                 original_direction=None,
@@ -301,7 +302,7 @@ class Renderer:
 
         width_cache: dict[str, list[int]] = {}
         for c in raw:
-            rows = await self.bot.db.conn.fetchall(
+            rows = await self.db.conn.fetchall(
                 '''
                 SELECT char, width FROM letters
                 WHERE char == ? AND mode == ?;
@@ -348,7 +349,7 @@ class Renderer:
                 if sum(widths) > max_width:
                     raise errors.CustomTextTooLong(text)
             return index
-        
+
         def too_squished(widths: list[int], index: int) -> bool:
             '''Is the arrangement too squished? (bad letter spacing)'''
             if mode == "small":
@@ -360,7 +361,7 @@ class Renderer:
             else:
                 gaps = max_width - sum(widths)
                 return gaps < len(widths) - 1
-        
+
         # Check if the arrangement is valid with minimum sizes
         # If allowed, shift the index to make the arrangement valid
         index = check_or_adjust(widths, index)
@@ -413,7 +414,7 @@ class Renderer:
 
         letters: list[Image.Image] = []
         for c, seed_digit, width in zip(raw, seed_digits, widths):
-            l_rows = await self.bot.db.conn.fetchall(
+            l_rows = await self.db.conn.fetchall(
                 # fstring use safe
                 f'''
                 SELECT char, width, sprite_{int(wobble)} FROM letters
@@ -456,10 +457,10 @@ class Renderer:
                 x += widths[i]
                 if i != len(raw) - 1:
                     x += gaps[i + 1]
-            
+
         sprite = Image.merge("RGBA", (sprite, sprite, sprite, sprite))
         return self.apply_options(
-            sprite, 
+            sprite,
             original_style="noun",
             style=style,
             original_direction=None,
@@ -483,7 +484,7 @@ class Renderer:
         wobble: int
     ) -> Image.Image:
         '''Takes an image, taking tile data from its name, and applies the given options to it.'''
-        tile_data = await self.bot.db.tile(name)
+        tile_data = await self.db.tile(name)
         assert tile_data is not None
         original_style = constants.TEXT_TYPES[tile_data.text_type]
         original_direction = tile_data.text_direction
@@ -508,7 +509,7 @@ class Renderer:
     def apply_options(
         self,
         sprite: Image.Image,
-        *, 
+        *,
         original_style: str,
         style: str,
         original_direction: int | None,
@@ -541,15 +542,15 @@ class Renderer:
             sprite = new
 
         if (
-            meta_level != 0 or 
+            meta_level != 0 or
             original_style != style or (
-                style == "property" and 
+                style == "property" and
                 original_direction != direction
             )
         ):
             if original_style == "property":
                 # box: position of upper-left coordinate of "inner text" in the larger text tile
-                plate, box = self.bot.db.plate(original_direction, wobble)
+                plate, box = self.db.plate(original_direction, wobble)
                 plate_alpha = ImageChops.invert(plate.getchannel("A"))
                 sprite_alpha = ImageChops.invert(sprite.getchannel("A"))
                 alpha = ImageChops.subtract(sprite_alpha, plate_alpha)
@@ -558,7 +559,7 @@ class Renderer:
             if style == "property":
                 if sprite.height != constants.DEFAULT_SPRITE_SIZE or sprite.width != constants.DEFAULT_SPRITE_SIZE:
                     raise ValueError(sprite.size)
-                plate, box = self.bot.db.plate(direction, wobble)
+                plate, box = self.db.plate(direction, wobble)
                 plate = self.make_meta(plate, meta_level)
                 plate_alpha = plate.getchannel("A")
                 sprite_alpha = sprite.getchannel("A").crop(
@@ -580,21 +581,21 @@ class Renderer:
         '''Applies a meta filter to an image.'''
         if level > constants.MAX_META_DEPTH:
             raise ValueError(level)
-        
+
         orig = img.copy()
         base = img.getchannel("A")
         for _ in range(level):
             temp = base.crop((-2, -2, base.width + 2, base.height + 2))
             filtered = ImageChops.invert(temp).filter(ImageFilter.FIND_EDGES)
             base = filtered.crop((1, 1, filtered.width - 1, filtered.height - 1))
-        
+
         base = Image.merge("RGBA", (base, base, base, base))
         if level % 2 == 0 and level != 0:
             base.paste(orig, (level, level), mask=orig)
         elif level % 2 == 1 and level != 1:
             blank = Image.new("RGBA", orig.size)
             base.paste(blank, (level, level), mask=orig)
-        
+
         return base
 
     def save_frames(
@@ -606,12 +607,13 @@ class Renderer:
         extra_name: str | None = None
     ) -> None:
         '''Saves the images as a gif to the given file or buffer.
-        
+
         If a buffer, this also conveniently seeks to the start of the buffer.
 
         If extra_out is provided, the frames are also saved as a zip file there.
         '''
         # Pillow has a longstanding bug with transparency indices in gifs
+        # TODO(netux): but it was fixed recently! Check if save_transparent_gif.py is still needed
         save_transparent_gif(imgs, delay, out)
         if not isinstance(out, str):
             out.seek(0)

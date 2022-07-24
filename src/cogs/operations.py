@@ -20,28 +20,27 @@ class MacroCtx:
     operation: str
 
 class OperationMacros:
-    def __init__(self, bot: Bot) -> None:
+    def __init__(self) -> None:
         self.macros: list[Macro] = []
-        self.bot = bot
 
     def macro(
-        self, 
-        *, 
+        self,
+        *,
         pattern: str,
         operation_hints: dict[str, str],
         operation_group: str = "Other",
         order: int | None = None
     ) -> Callable[[MacroFn], Macro]:
         '''Registers a operation macro.
-        
+
         The decorated function should take one argument, a `PositionedTile`.
 
-        The macro is invoked when the operation matches `pattern`. 
+        The macro is invoked when the operation matches `pattern`.
 
         `operation_hints` is a list of (operation, user-friendly representation) pairs.
-        Each operation should be valid for the macro. The representation should typically 
-        be related to the operation provided, as it will be passed to the user. 
-        
+        Each operation should be valid for the macro. The representation should typically
+        be related to the operation provided, as it will be passed to the user.
+
         `operation_group` is a key used to group operation macros together. It should
         be a user-friendly string.
 
@@ -98,23 +97,18 @@ class Macro:
 
     def match(self, operation: str) -> tuple[str, ...] | None:
         '''Can this macro take the operation?
-        
+
         Returns the matched groups if possible, else returns `None`.
         '''
         matches = re.fullmatch(self.pattern, operation)
         if matches is not None:
             return matches.groups()
-    
+
     def expand_into(self, grid: Grid[RawTile], tile: list[RawTile], position: tuple[int, int, int], groups: tuple[str, ...], operation: str) -> tuple[int, int, int]:
         '''Handle the operation'''
         return self.fn(MacroCtx(grid, tile, position, groups, operation))
 
-
-async def setup(bot: Bot):
-    '''Get the operation macro instance'''
-    macros = OperationMacros(bot)
-    bot.operation_macros = macros
-    
+def setup_default_macros(macros: OperationMacros):
     @macros.macro(
         pattern=r"idle(\d+)?",
         operation_hints={"idle": "`idle<number>` Animate the tile in place for <number> animation cycles"},
@@ -132,7 +126,7 @@ async def setup(bot: Bot):
                 ctx.tile[-1].variants[-1] = f"a{i}s"
                 ctx.grid.setdefault((x, y, t + 4 * dt + i), []).append(ctx.tile[-1].copy())
         return (0, 0, count)
-    
+
     @macros.macro(
         pattern=r"m([udlr]+)",
         operation_hints={"mr": "`m<udlr>`: Move the tile across space in a single frame, e.g. `mrrd`."},
@@ -142,12 +136,12 @@ async def setup(bot: Bot):
         groups = ctx.groups
         dx = groups[0].count("r") - groups[0].count("l")
         dy = groups[0].count("d") - groups[0].count("u")
-        
+
         original = ctx.tile[-1].copy()
         # note the order of lines
         original.ephemeral = True
         ctx.grid.setdefault(ctx.position, []).append(original)
-        
+
         if abs(dx) >= abs(dy):
             if dx >= 0:
                 ctx.tile[-1].variants.append("rs")
@@ -158,13 +152,13 @@ async def setup(bot: Bot):
                 ctx.tile[-1].variants.append("ds")
             else:
                 ctx.tile[-1].variants.append("us")
-        
+
         x, y, t = ctx.position
         if x + dx < 0 or y + dy < 0:
             raise errors.MovementOutOfFrame(ctx.operation, ctx.position, ctx.tile[-1])
         ctx.grid.setdefault((x + dx, y + dy, t + 1), []).append(ctx.tile[-1].copy())
         return (dx, dy, 1)
-    
+
     @macros.macro(
         pattern=r"([udlri]+)",
         operation_hints={"r": "`<udlri>`: Move the object like YOU!"},
@@ -176,7 +170,7 @@ async def setup(bot: Bot):
         ctx.grid.setdefault(ctx.position, []).append(original)
         ctx.tile[-1].variants.append("") # temporary
         ctx.tile[-1].variants.append("") # temporary
-        
+
         dx = dy = 0
         x, y, t = ctx.position
         animation = 0
@@ -208,5 +202,14 @@ async def setup(bot: Bot):
             # the +1 is required as dt starts from 0
             ctx.grid.setdefault((x + dx, y + dy, t + dt + 1), []).append(new)
         return (dx, dy, len(movements))
+
+
+
+async def setup(bot: Bot):
+    '''Get the operation macro instance'''
+    macros = OperationMacros()
+    bot.operation_macros = macros
+
+    setup_default_macros(macros)
 
     return macros

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name='viewport' content='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no'/>
+	<title>WEBAPP IS YOU</title>
+	<meta name="description" content="A web interface based on the ROBOT IS YOU Discord bot by RocketRace (https://github.com/RocketRace/robot-is-you)">
+	<meta name="author" content="Martín 'Netux' Rodriguez (https://me.netux.site)" />
+	<meta name="keywords" content="BABA, BABA IS YOU, ROBOT IS YOU, Python, Flask">
+	<style>
+		form > * {
+			display: block;
+		}
+
+		#result {
+			outline: 1px solid black;
+			transform: scale(3);
+			transform-origin: top left;
+			image-rendering: pixelated;
+			image-rendering: crisp-edges;
+		}
+
+		.bg-checkerboard {
+			background: repeating-conic-gradient(#b7b7b7 0% 25%, #ddd 0% 50%)
+						50% / 10px 10px;
+		}
+	</style>
+</head>
+<body>
+	<form id="input">
+		<label for="objects">Text:</label>
+		<textarea name="objects">{{ objects or "" }}</textarea>
+		<input type="submit" value="Render" />
+	</form>
+
+	{% if image_uuid is not none %}
+		<hr />
+		<p>Result:</p>
+		<img id="result" class="bg-checkerboard" src="/results/{{ image_uuid }}" />
+	{% endif %}
+</body>
+</html>
