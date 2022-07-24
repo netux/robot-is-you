@@ -23,6 +23,10 @@
 			padding: 1em;
 		}
 
+		.warning {
+			background-color: #fefe00;
+		}
+
 		.bg-checkerboard {
 			background: repeating-conic-gradient(#b7b7b7 0% 25%, #ddd 0% 50%)
 						50% / 10px 10px;
@@ -40,37 +44,68 @@
 
 		<fieldset>
 			<legend>Options:</legend>
+
+			{# TODO(netux): implement palette #}
+
 			<div>
 				<label for="use_bg">Use background:</label>
 				<input name="use_bg" type="checkbox" {% if options.use_bg %}checked{% endif %} />
 			</div>
-			<label for="bg_tx bg_ty">Background (tx, ty):</label>
-			{# TODO(netux): get min and max from selected palette #}
-			<input name="bg_tx" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="6" value="{{ options.bg_tx or 0 }}" />
-			<input name="bg_ty" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="4" value="{{ options.bg_ty or 4 }}" />
+			<div>
+				{# TODO(netux): implement color picker based on palette instead #}
+				<label for="bg_tx bg_ty">Background (tx, ty):</label>
+				<input name="bg_tx" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="6" value="{{ options.bg_tx or 0 }}" />
+				<input name="bg_ty" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="4" value="{{ options.bg_ty or 4 }}" />
+			</div>
+
+			<details>
+				<summary>Advanced</summary>
+				<div>
+					{# TODO(netux): Figure out what this does and add description about it #}
+					<label for="default_to_letters">Default to letters:</label>
+					<input name="default_to_letters" type="checkbox" {% if options.default_to_letters %}checked{% endif %} />
+				</div>
+
+				<div>
+					<label for="delay">Delay:</label>
+					<input name="delay" style="width: 7ch;" type="number" min="1" max="1000" value="{{ options.delay or 200 }}" />
+					ms
+					<div id="small-delay-warning" class="warning" style="display: none;">
+						A delay smaller than 20ms is rendered as much slower in most programs (e.g. browsers)
+					</div>
+				</div>
+
+				<div>
+					<label for="frame_count">Frame count:</label>
+					<input name="frame_count" style="width: 5ch;" type="number" min="1" max="3" value="{{ options.frame_count or 3 }}" />
+					frames
+				</div>
+			</details>
 
 			<script>
 				{
 					const onlyIfUseBgEls = document.getElementsByClassName("only-if-use_bg");
-					const useBgEl = document.getElementsByName("use_bg")[0];
+					const useBgInputEl = document.getElementsByName("use_bg")[0];
 					function updateOnlyIfUseBg() {
 						for (const el of onlyIfUseBgEls) {
-							el.disabled = !useBgEl.checked;
+							el.disabled = !useBgInputEl.checked;
 						}
 					}
-					useBgEl.addEventListener("change", updateOnlyIfUseBg);
+					useBgInputEl.addEventListener("change", updateOnlyIfUseBg);
 					updateOnlyIfUseBg();
+				}
+
+				{
+					const delayWarningEl = document.getElementById("small-delay-warning");
+					const delayInputEl = document.getElementsByName("delay")[0];
+					function updateSmallDelayWarning() {
+						delayWarningEl.style.display = delayInputEl.valueAsNumber < 20 ? "initial" : "none";
+					}
+					delayInputEl.addEventListener("change", updateSmallDelayWarning);
+					updateSmallDelayWarning();
 				}
 			</script>
 		</fieldset>
-
-		{# TODO(netux): implement options
-		~~background~~ (use_bg, bg_tx, bg_ty)
-		palette
-		default_to_letters
-		delay
-		frame_count
-		#}
 
 		<input type="submit" value="Render" />
 	</form>
@@ -83,7 +118,10 @@
 			<img id="result" class="bg-checkerboard" src="/results/{{ image_uuid }}" />
 		{% endif %}
 	{% else %}
-		<div id="error">{{ error_msg }}</div>
+		<div id="error">
+			<h4>Error</h4>
+			<p>{{ error_msg }}</p>
+		</div>
 	{% endif %}
 </body>
 </html>
