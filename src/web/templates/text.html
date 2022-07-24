@@ -9,16 +9,18 @@
 	<meta name="author" content="Martín 'Netux' Rodriguez (https://me.netux.site)" />
 	<meta name="keywords" content="BABA, BABA IS YOU, ROBOT IS YOU, Python, Flask">
 	<style>
-		form > * {
-			display: block;
-		}
-
 		#result {
 			outline: 1px solid black;
 			transform: scale(3);
 			transform-origin: top left;
 			image-rendering: pixelated;
 			image-rendering: crisp-edges;
+		}
+
+		#error {
+			background-color: #e50000;
+			color: white;
+			padding: 1em;
 		}
 
 		.bg-checkerboard {
@@ -29,15 +31,59 @@
 </head>
 <body>
 	<form id="input">
-		<label for="objects">Text:</label>
-		<textarea name="objects">{{ objects or "" }}</textarea>
+		<div>
+			<label for="objects">Text:</label>
+			<textarea style="display: block;" name="objects">{{ objects or "" }}</textarea>
+		</div>
+
+		<br />
+
+		<fieldset>
+			<legend>Options:</legend>
+			<div>
+				<label for="use_bg">Use background:</label>
+				<input name="use_bg" type="checkbox" {% if options.use_bg %}checked{% endif %} />
+			</div>
+			<label for="bg_tx bg_ty">Background (tx, ty):</label>
+			{# TODO(netux): get min and max from selected palette #}
+			<input name="bg_tx" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="6" value="{{ options.bg_tx or 0 }}" />
+			<input name="bg_ty" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="4" value="{{ options.bg_ty or 4 }}" />
+
+			<script>
+				{
+					const onlyIfUseBgEls = document.getElementsByClassName("only-if-use_bg");
+					const useBgEl = document.getElementsByName("use_bg")[0];
+					function updateOnlyIfUseBg() {
+						for (const el of onlyIfUseBgEls) {
+							el.disabled = !useBgEl.checked;
+						}
+					}
+					useBgEl.addEventListener("change", updateOnlyIfUseBg);
+					updateOnlyIfUseBg();
+				}
+			</script>
+		</fieldset>
+
+		{# TODO(netux): implement options
+		~~background~~ (use_bg, bg_tx, bg_ty)
+		palette
+		default_to_letters
+		delay
+		frame_count
+		#}
+
 		<input type="submit" value="Render" />
 	</form>
 
-	{% if image_uuid is not none %}
-		<hr />
-		<p>Result:</p>
-		<img id="result" class="bg-checkerboard" src="/results/{{ image_uuid }}" />
+	<hr />
+
+	{% if error_msg is none %}
+		{% if image_uuid is not none %}
+			<p>Result:</p>
+			<img id="result" class="bg-checkerboard" src="/results/{{ image_uuid }}" />
+		{% endif %}
+	{% else %}
+		<div id="error">{{ error_msg }}</div>
 	{% endif %}
 </body>
 </html>

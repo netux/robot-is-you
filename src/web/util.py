@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import re
+import io
 from time import time
 from io import BytesIO
 from os import listdir
-from datetime import datetime
+from dataclasses import dataclass
 
 from lark.lexer import Token
 from lark.tree import Tree
@@ -94,26 +95,7 @@ async def handle_operation_errors(err: errors.OperationError):
 	else:
 		return errors.WebappUserError(f"The operation `{operation}` failed for `{tile.name}`.")
 
-async def render_tiles(
-	objects: str,
-	is_rule: bool,
-	*,
-	# TODO(netux): use kwargs
-	background = None,
-	palette = None,
-	raw = None,
-	letter = None,
-	delay = None,
-	frames = None
-):
-	database = await get_database()
-	operation_macros = await get_operation_macros()
-	variant_handlers = await get_variant_handlers()
-	renderer = await get_renderer()
-	lark = await get_lark()
-
-	'''Performs the bulk work for both `tile` and `rule` commands.'''
-	start = time()
+def normalize_objects(objects: str):
 	tiles = objects.lower().strip()
 
 	# replace emoji with their :text: representation
@@ -130,17 +112,19 @@ async def render_tiles(
 	# ignore all these
 	tiles = tiles.replace("```\n", "").replace("\\", "").replace("`", "")
 
-	# Determines if this should be a spoiler
-	spoiler = tiles.count("||") >= 2
-	tiles = tiles.replace("|", "")
+	return tiles
 
-	# Check for empty input
-	if not tiles:
-		raise errors.WebappUserError("Input cannot be blank.")
-		# return await ctx.error("Input cannot be blank.")
+async def render_tiles__ROBOT(
+	objects: str,
+	is_rule: bool
+):
+	# TODO(netux): move to ROBOT utils
+
+	# Determines if this should be a spoiler
+	spoiler = objects.count("||") >= 2
+	objects = objects.replace("|", "")
 
 	# Handle flags *first*, before even splitting
-	# TODO(netux): move these to kwargs
 	flag_patterns = (
 		r"(?:^|\s)(?:--background|-b)(?:=(\d)/(\d))?(?:$|\s)",
 		r"(?:^|\s)(?:--palette=|-p=|palette:)(\w+)(?:$|\s)",
@@ -153,18 +137,12 @@ async def render_tiles(
 	for match in re.finditer(flag_patterns[0], tiles):
 		if match.group(1) is not None:
 			tx, ty = int(match.group(1)), int(match.group(2))
-			if not (0 <= tx <= 7 and 0 <= ty <= 5):
-				raise errors.WebappUserError("The provided background color is invalid.")
-				# return await ctx.error("The provided background color is invalid.")
 			background = tx, ty
 		else:
 			background = (0, 4)
 	palette = "default"
 	for match in re.finditer(flag_patterns[1], tiles):
 		palette = match.group(1)
-		if palette + ".png" not in listdir("data/palettes"):
-			raise errors.WebappUserError(f"Could not find a palette with name \"{palette}\".")
-			# return await ctx.error(f"Could not find a palette with name \"{palette}\".")
 	raw_output = False
 	raw_name = ""
 	for match in re.finditer(flag_patterns[2], tiles):
@@ -177,22 +155,16 @@ async def render_tiles(
 	delay = 200
 	for match in re.finditer(flag_patterns[4], tiles):
 		delay = int(match.group(2))
-		if delay < 1 or delay > 1000:
-			raise errors.WebappUserError(f"Delay must be between 1 and 1000 milliseconds.")
-			# return await ctx.error(f"Delay must be between 1 and 1000 milliseconds.")
 	frame_count = 3
 	for match in re.finditer(flag_patterns[5], tiles):
 		frame_count = int(match.group(2))
-		if frame_count < 1 or frame_count > 3:
-			raise errors.WebappUserError(f"The frame count must be 1, 2 or 3.")
-			# return await ctx.error(f"The frame count must be 1, 2 or 3.")
 
 	# Clean up
 	for pattern in flag_patterns:
 		tiles = re.sub(pattern, " ", tiles)
 
 	# read from file if nothing (beyond flags) is provided
-	# TODO(netux): remove
+	# TODO(netux): move to ROBOT utils
 	# if not tiles.strip():
 	# 	attachments = ctx.message.attachments
 	# 	if len(attachments) > 0:
@@ -206,6 +178,76 @@ async def render_tiles(
 	# 		except UnicodeDecodeError:
 	# 			await ctx.error("The file contains invalid UTF-8. Make sure it's not corrupt.")
 
+	return await render_tiles(
+		objects=tiles,
+		is_rule=is_rule,
+		options=RenderTilesOptions(
+			spoiler=spoiler,
+			background=background,
+			palette=palette,
+			raw_output=raw_output,
+			raw_name=raw_name,
+			default_to_letters=default_to_letters,
+			delay=delay,
+			frame_count=frame_count
+		)
+	)
+
+@dataclass(frozen=True)
+class RenderTilesOptions:
+	spoiler: bool = False # TODO(netux): deprecate for WEBAPP
+	background: tuple[int, int] | None = None # TODO(netux): WEBAPP: allow default of (0, 4)
+	palette: str = "default"
+	raw_output: bool = False # TODO(netux): deprecate for WEBAPP
+	raw_name: str = "" # TODO(netux): deprecate for WEBAPP
+	default_to_letters: bool = False
+	delay: int = 200
+	frame_count: int = 3
+
+@dataclass
+class RenderTilesOutput:
+	buffer: io.BytesIO
+	extra_buffer: io.BytesIO
+	seconds_taken: float
+
+async def render_tiles(
+	objects: str,
+	is_rule: bool,
+	options: RenderTilesOptions
+) -> RenderTilesOutput:
+	'''Performs the bulk work for both `tile` and `rule` commands.'''
+
+	database = await get_database()
+	operation_macros = await get_operation_macros()
+	variant_handlers = await get_variant_handlers()
+	renderer = await get_renderer()
+	lark = await get_lark()
+
+	start = time()
+	tiles = normalize_objects(objects)
+
+	# Check arguments
+	if not tiles:
+		raise errors.WebappUserError("Input cannot be blank.")
+		# return await ctx.error("Input cannot be blank.")
+
+	if options.background is not None:
+		bg_tx, bg_ty = options.background
+		if not (0 <= bg_tx < 7 and 0 <= bg_ty < 5):
+			raise errors.WebappUserError("The provided background color is invalid.")
+			# return await ctx.error("The provided background color is invalid.")
+
+	if f"{options.palette}.png" not in listdir("data/palettes"):
+		raise errors.WebappUserError(f"Could not find a palette with name \"{options.palette}\".")
+		# return await ctx.error(f"Could not find a palette with name \"{palette}\".")
+
+	if not (1 <= options.delay <= 1000):
+		raise errors.WebappUserError(f"Delay must be between 1 and 1000 milliseconds.")
+		# return await ctx.error(f"Delay must be between 1 and 1000 milliseconds.")
+
+	if not (1 <= options.frame_count <= 3):
+		raise errors.WebappUserError(f"The frame count must be 1, 2 or 3.")
+		# return await ctx.error(f"The frame count must be 1, 2 or 3.")
 
 	# Split input into lines
 	rows = tiles.splitlines()
@@ -463,15 +505,16 @@ async def render_tiles(
 	try:
 		# Handles variants based on `:` affixes
 		buffer = BytesIO()
-		extra_buffer = BytesIO() if raw_output else None
-		extra_names = [] if raw_output else None
+		extra_buffer = BytesIO() if options.raw_output else None
+		extra_names = [] if options.raw_output else None
 		full_objects = await variant_handlers.handle_grid(
 			expanded_tiles,
 			(width, height),
-			raw_output=raw_output,
+			raw_output=options.raw_output,
 			extra_names=extra_names,
-			default_to_letters=default_to_letters
+			default_to_letters=options.default_to_letters
 		)
+		raw_name = options.raw_name
 		if extra_names is not None and not raw_name:
 			if len(extra_names) == 1:
 				raw_name = extra_names[0]
@@ -479,19 +522,19 @@ async def render_tiles(
 				raw_name = constants.DEFAULT_RENDER_ZIP_NAME
 		full_tiles = await renderer.render_full_tiles(
 			full_objects,
-			palette=palette,
+			palette=options.palette,
 			random_animations=True
 		)
 		await renderer.render(
 			full_tiles,
 			grid_size=(width, height),
 			duration=duration,
-			palette=palette,
-			background=background,
+			palette=options.palette,
+			background=options.background,
 			out=buffer,
-			delay=delay,
-			frame_count=frame_count,
-			upscale=not raw_output,
+			delay=options.delay,
+			frame_count=options.frame_count,
+			upscale=not options.raw_output,
 			extra_out=extra_buffer,
 			extra_name=raw_name,
 		)
@@ -526,13 +569,10 @@ async def render_tiles(
 	except errors.TextGenerationError as e:
 		raise await handle_custom_text_errors(e) from e
 
-	filename = datetime.utcnow().strftime(r"render_%Y-%m-%d_%H.%M.%S.gif")
 	delta = time() - start
-	msg = f"*Rendered in {delta:.2f} s*"
 	if extra_buffer is not None and raw_name:
 		extra_buffer.seek(0)
-		return (buffer, extra_buffer)
-		# await ctx.reply(content=f'{msg}\n*Raw files:*', files=[discord.File(extra_buffer, filename=f"{raw_name}.zip"),discord.File(buffer, filename=filename, spoiler=spoiler)])
 	else:
-		return (buffer, None)
-		# await ctx.reply(content=msg, file=discord.File(buffer, filename=filename, spoiler=spoiler))
+		extra_buffer = None
+
+	return RenderTilesOutput(buffer, extra_buffer, delta)
