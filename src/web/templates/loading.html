@@ -19,7 +19,7 @@
 	</noscript>
 
 	<yesscript>
-		<p>This page will automatically reload in <span id="countdown">...</span></p>
+		<p>This page will automatically reload <span id="countdown">...</span></p>
 	</yesscript>
 
 	<script>
@@ -29,7 +29,9 @@
 
 		const countdownEl = document.getElementById("countdown");
 		function renderCountdown() {
-			countdownEl.innerText = `${countdown} seconds`;
+			countdownEl.innerText = countdown > 0
+				? `in ${countdown} second${countdown === 1 ? "s" : ""}`
+				: "now...";
 		}
 
 		let countdown = 30;
