@@ -4,6 +4,7 @@ import asyncio
 import uuid
 import tempfile
 import dataclasses
+from datetime import datetime, timedelta
 from typing import Optional
 
 import quart
@@ -49,25 +50,29 @@ class GeneratedTiles:
 	prompt: str
 	uuid: str
 	tmp: tempfile.TemporaryFile
+	generated_at: datetime = dataclasses.field(default_factory=lambda: datetime.now())
+
+	def __hash__(self) -> int:
+		return self.uuid.__hash__()
 
 uuid_to_generated_tiles_map: dict[uuid.UUID, GeneratedTiles] = {}
 prompt_to_last_uuid_map: dict[str, uuid.UUID] = {}
 
-remove_scheduled = set()
+remove_scheduled: set[GeneratedTiles] = set()
 
 @app.route("/results/<uuid:uuid>", methods=["GET"])
 async def results(uuid: str):
-	generated_tiles = uuid_to_generated_tiles_map.get(uuid, None)
+	generated_tile = uuid_to_generated_tiles_map.get(uuid, None)
 
-	if generated_tiles is None:
+	if generated_tile is None:
 		response = await make_response("Invalid UUID")
 		response.status_code = 400
 		return response
 
 
-	blob = generated_tiles.tmp.read()
-	generated_tiles.tmp.seek(0)
-	remove_scheduled.add(uuid)
+	blob = generated_tile.tmp.read()
+	generated_tile.tmp.seek(0)
+	remove_scheduled.add(generated_tile)
 
 	response = await make_response(blob)
 	response.headers.add('Content-Type', 'image/gif')
@@ -161,36 +166,30 @@ async def do_load():
 		await load()
 	load_done = True
 
-# This is terrible
-# Is there a better way to do this?
-async def remove_loop():
+async def remove_scheduled_loop():
 	global remove_scheduled
 
-	cnt = 0
+	# TODO(netux): make configurable
+	MAX_LIFE = timedelta(hours=1)
 
 	while True:
 		await asyncio.sleep(1)
-		cnt += 1
 
-		# TODO(netux): make configurable
-		if cnt >= 60 * 60:
-			cnt = 0
-			tmp_scheduled = remove_scheduled
-			remove_scheduled = set()
-			try:
-				print("Removing", tmp_scheduled)
-				while (uuid := tmp_scheduled.pop()):
-					tmp = uuid_to_generated_tiles_map.pop(uuid)
-					tmp.close()
-			except KeyError:
-				# set is empty
-				pass
+		now = datetime.now()
+
+		for generated_tile in remove_scheduled:
+			if (generated_tile.generated_at + MAX_LIFE) > now:
+				print("Removing", generated_tile)
+				uuid_to_generated_tiles_map.pop(generated_tile.uuid)
+				prompt_to_last_uuid_map.pop(generated_tile.prompt)
+				generated_tile.tmp.close()
+				remove_scheduled.pop(generated_tile)
 
 if __name__ == "__main__":
 	loop = asyncio.new_event_loop()
 
 	loop.create_task(do_load())
-	loop.create_task(remove_loop())
+	loop.create_task(remove_scheduled_loop())
 
 	@app.teardown_appcontext
 	async def teardown(err):
