@@ -1,4 +1,3 @@
-# TODO(netux): add logging
 from __future__ import annotations
 
 import asyncio
@@ -193,7 +192,7 @@ async def remove_scheduled_loop():
 		for input_hash in scheduled_to_remove:
 			generated_tile = input_hash_to_generated_tiles_map[input_hash]
 			if now > (generated_tile.generated_at + MAX_LIFE):
-				print("Removing", generated_tile)
+				app.logger.info("Removing", generated_tile)
 				input_hash_to_generated_tiles_map.pop(input_hash)
 				generated_tile.tmp.close()
 
@@ -218,7 +217,7 @@ if __name__ == "__main__":
 	except KeyboardInterrupt:
 		pass
 	finally:
-		print("Shutting down...")
+		app.logger.info("Shutting down...")
 		loop.stop()
 		loop.close()
 

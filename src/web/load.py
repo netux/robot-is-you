@@ -6,9 +6,10 @@ import re
 import pathlib
 from typing import Any
 
-from src.db import Database
+from quart import current_app
 
 from .. import constants
+from ..db import Database
 from .context import get_database
 
 async def load_initial_tiles(db: Database):
@@ -351,14 +352,14 @@ async def load_custom_tiles(db: Database):
 			)
 
 async def load():
-	print("Loading...")
+	current_app.logger.info("Loading...")
 	db = await get_database()
-	print("Got database")
+	current_app.logger.info("Got database")
 	await load_initial_tiles(db)
-	print("Loaded initial tiles")
+	current_app.logger.info("Loaded initial tiles")
 	await load_editor_tiles(db)
-	print("Loaded editor tiles")
+	current_app.logger.info("Loaded editor tiles")
 	await load_custom_tiles(db)
-	print("Loaded custom tiles")
-	print("Ready!")
+	current_app.logger.info("Loaded custom tiles")
+	current_app.logger.info("Ready!")
 
