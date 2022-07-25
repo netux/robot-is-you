@@ -8,7 +8,42 @@
 	<meta name="description" content="A web interface based on the ROBOT IS YOU Discord bot by RocketRace (https://github.com/RocketRace/robot-is-you)">
 	<meta name="author" content="Martín 'Netux' Rodriguez (https://me.netux.site)" />
 	<meta name="keywords" content="BABA, BABA IS YOU, ROBOT IS YOU, Python, Flask">
+	{# TODO(netux): dark mode #}
 	<style>
+		html {
+			box-sizing: border-box;
+		}
+		*, *:before, *:after {
+			box-sizing: inherit;
+		}
+
+		body, input, textarea {
+			font-family: sans-serif;
+		}
+
+		h1, h2, h3, h4, h5, h6, p, ul, ol {
+			margin: 0.5em 0;
+		}
+
+		summary {
+			cursor: pointer;
+		}
+
+		code {
+			padding: 0.2em 0.4em;
+			font-size: 85%;
+			border-radius: 6px;
+			background-color: lightgrey;
+		}
+
+		#input [name="prompt"] {
+			width: 100%;
+			display: block;
+			resize: vertical;
+			font-family: monospace;
+			box-sizing: border-box;
+		}
+
 		#result {
 			outline: 1px solid black;
 			transform: scale(3);
@@ -26,19 +61,64 @@
 		.warning {
 			background-color: #fefe00;
 		}
+		.warning::before {
+			content: "⚠ ";
+		}
+
+		.info {
+			color: blue;
+		}
+		.info::before {
+			content: "❗";
+		}
 
 		.bg-checkerboard {
 			background: repeating-conic-gradient(#b7b7b7 0% 25%, #ddd 0% 50%)
 						50% / 10px 10px;
+		}
+
+		.example-prompt {
+			font-family: monospace;
+			text-decoration: none;
 		}
 	</style>
 </head>
 <body>
 	<form id="input">
 		<div>
-			<label for="objects">Text:</label>
-			<textarea style="display: block;" name="objects">{{ objects or "" }}</textarea>
+			<label for="prompt"><b>Prompt</b>:</label>
+			<textarea name="prompt">{{ prompt or "" }}</textarea>
 		</div>
+		<details>
+			<summary>Cheatsheet</summary>
+
+			<h4>Variants, Operations & Transformations</h4>
+			<ul>
+				<li><code>:variant</code>: Append <code>:variant</code> to a tile to change color or sprite of a tile. <a href="{# TODO(netux): implement #}">See all variants</a>.</li>
+				<li><code>!operation</code>: Apply a macro operation to a tile. <a href="{# TODO(netux): implement #}">See all operations</a>.</li>
+				<li><code>&gt;</code>: Transform the tile on the left to the tile on the right! Examples: <code>baba&gt;keke</code>, <code>rock&gt;&gt;&gt;flag&gt;dust&gt;&gt;-</code></li>
+			</ul>
+
+			<h4>Useful tips:</h4>
+			<ul>
+				<li><code>-</code>: Shortcut for an empty tile.</li>
+				<li><code>&</code>: Stacks tiles on top of each other. The left-most tiles will be behind the right-most tiles.</li>
+				<li><code>tile_</code>: <code>tile_object</code> renders regular objects.</li>
+				<li><code>,</code>: <code>tile_x,y,...</code> is expanded into <code>tile_x tile_y ...</code></li>
+				<li><code>(baba keke)</code> groups tiles together, for easier variants</li>
+				{# <li><code>"baba is you"</code> makes all the tiles inside text</li> #} {# TODO(netux): this seems to be broken #}
+				<li><code>[baba keke me]</code> makes all the tiles inside objects</li>
+			</ul>
+
+			<h4>Example commands:</h4>
+			<p>Click to use</p>
+			<ul>
+				<li><a href="#" class="example-prompt">baba is you</a></li>
+				<li><a href="#" class="example-prompt">rock is win - tile_rock&tile_baba</a></li>
+				<li><a href="#" class="example-prompt">tile_baba on baba is word</a></li>
+				<li><a href="#" class="example-prompt">baba eat baba - tile_baba tile_baba:l</a></li>
+			</ul>
+		</details>
 
 		<br />
 
@@ -48,7 +128,7 @@
 			{# TODO(netux): implement palette #}
 
 			<div>
-				<label for="use_bg">Use background:</label>
+				<label for="use_bg">Use background</label>
 				<input name="use_bg" type="checkbox" {% if options.use_bg %}checked{% endif %} />
 			</div>
 			<div>
@@ -61,13 +141,7 @@
 			<details>
 				<summary>Advanced</summary>
 				<div>
-					{# TODO(netux): Figure out what this does and add description about it #}
-					<label for="default_to_letters">Default to letters:</label>
-					<input name="default_to_letters" type="checkbox" {% if options.default_to_letters %}checked{% endif %} />
-				</div>
-
-				<div>
-					<label for="delay">Delay:</label>
+					<label for="delay">Delay between frames:</label>
 					<input name="delay" style="width: 7ch;" type="number" min="1" max="1000" value="{{ options.delay or 200 }}" />
 					ms
 					<div id="small-delay-warning" class="warning" style="display: none;">
@@ -76,36 +150,20 @@
 				</div>
 
 				<div>
-					<label for="frame_count">Frame count:</label>
+					<label for="frame_count">Amount of frames:</label>
 					<input name="frame_count" style="width: 5ch;" type="number" min="1" max="3" value="{{ options.frame_count or 3 }}" />
 					frames
 				</div>
+
+				<div>
+					{# TODO(netux): Figure out examples for this #}
+					<label for="default_to_letters">Use letter mode for custom two-letter tiles</label>
+					<input name="default_to_letters" type="checkbox" {% if options.default_to_letters %}checked{% endif %} />
+				</div>
 			</details>
-
-			<script>
-				{
-					const onlyIfUseBgEls = document.getElementsByClassName("only-if-use_bg");
-					const useBgInputEl = document.getElementsByName("use_bg")[0];
-					function updateOnlyIfUseBg() {
-						for (const el of onlyIfUseBgEls) {
-							el.disabled = !useBgInputEl.checked;
-						}
-					}
-					useBgInputEl.addEventListener("change", updateOnlyIfUseBg);
-					updateOnlyIfUseBg();
-				}
-
-				{
-					const delayWarningEl = document.getElementById("small-delay-warning");
-					const delayInputEl = document.getElementsByName("delay")[0];
-					function updateSmallDelayWarning() {
-						delayWarningEl.style.display = delayInputEl.valueAsNumber < 20 ? "initial" : "none";
-					}
-					delayInputEl.addEventListener("change", updateSmallDelayWarning);
-					updateSmallDelayWarning();
-				}
-			</script>
 		</fieldset>
+
+		<br />
 
 		<input type="submit" value="Render" />
 	</form>
@@ -113,7 +171,7 @@
 	<hr />
 
 	{% if error_msg is none %}
-		{% if image_uuid is not none %}
+		{% if generated_tiles is not none %}
 			<p>Result:</p>
 			<img id="result" class="bg-checkerboard" src="/results/{{ generated_tiles.uuid }}" />
 		{% endif %}
@@ -123,5 +181,42 @@
 			<p>{{ error_msg }}</p>
 		</div>
 	{% endif %}
+
+	<script>
+		/* handle example prompt clicks */ {
+			const formEl = document.getElementById("input");
+			const promptInputEl = document.getElementsByName("prompt")[0];
+			const examplePromptEls = document.querySelectorAll("a.example-prompt");
+			for (const anchorEl of examplePromptEls) {
+				anchorEl.addEventListener("click", (ev) => {
+					ev.preventDefault();
+					promptInputEl.value = anchorEl.textContent;
+					formEl.submit();
+				});
+			}
+		}
+
+		/* disable background coords when not using background */ {
+			const onlyIfUseBgEls = document.getElementsByClassName("only-if-use_bg");
+			const useBgInputEl = document.getElementsByName("use_bg")[0];
+			function updateOnlyIfUseBg() {
+				for (const el of onlyIfUseBgEls) {
+					el.disabled = !useBgInputEl.checked;
+				}
+			}
+			useBgInputEl.addEventListener("change", updateOnlyIfUseBg);
+			updateOnlyIfUseBg();
+		}
+
+		/* display delay warning */ {
+			const delayWarningEl = document.getElementById("small-delay-warning");
+			const delayInputEl = document.getElementsByName("delay")[0];
+			function updateSmallDelayWarning() {
+				delayWarningEl.style.display = delayInputEl.valueAsNumber < 20 ? "initial" : "none";
+			}
+			delayInputEl.addEventListener("change", updateSmallDelayWarning);
+			updateSmallDelayWarning();
+		}
+	</script>
 </body>
 </html>

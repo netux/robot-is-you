@@ -121,7 +121,7 @@ class WebappRenderTilesOptions:
 @not_ready_fallback
 async def text():
 	generated_tiles = None
-	prompt = request.args.get("objects", None)
+	prompt = request.args.get("prompt", None)
 	options = WebappRenderTilesOptions.from_request(request)
 	error_msg = None
 	status_code = 200
@@ -150,7 +150,7 @@ async def text():
 			generated_tiles = uuid_to_generated_tiles_map[prompt_to_last_uuid_map[prompt]]
 
 	response = await make_response(await render_template("text.html",
-		objects=prompt,
+		prompt=prompt,
 		generated_tiles=generated_tiles,
 		options=options,
 		error_msg=error_msg
