@@ -193,7 +193,7 @@ async def render_tiles__ROBOT(
 		)
 	)
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class RenderTilesOptions:
 	spoiler: bool = False # TODO(netux): deprecate for WEBAPP
 	background: tuple[int, int] | None = None # TODO(netux): WEBAPP: allow default of (0, 4)
@@ -204,7 +204,7 @@ class RenderTilesOptions:
 	delay: int = 200
 	frame_count: int = 3
 
-@dataclass
+@dataclass(frozen=True, unsafe_hash=True)
 class RenderTilesOutput:
 	buffer: io.BytesIO
 	extra_buffer: io.BytesIO

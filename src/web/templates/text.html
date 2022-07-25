@@ -173,7 +173,7 @@
 	{% if error_msg is none %}
 		{% if generated_tiles is not none %}
 			<p>Result:</p>
-			<img id="result" class="bg-checkerboard" src="/results/{{ generated_tiles.uuid }}" />
+			<img id="result" class="bg-checkerboard" src="/results/{{ generated_tiles.result_url_hash }}" />
 		{% endif %}
 	{% else %}
 		<div id="error">

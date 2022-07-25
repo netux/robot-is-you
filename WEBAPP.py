@@ -1,7 +1,8 @@
+# TODO(netux): add logging
 from __future__ import annotations
 
 import asyncio
-import uuid
+import base64
 import tempfile
 import dataclasses
 from datetime import datetime, timedelta
@@ -45,34 +46,44 @@ def coerce_request_arg_to_int(value: str | None) -> int | None:
 	except ValueError:
 		return None
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class GeneratedTiles:
-	prompt: str
-	uuid: str
+	input_hash: int
 	tmp: tempfile.TemporaryFile
 	generated_at: datetime = dataclasses.field(default_factory=lambda: datetime.now())
 
-	def __hash__(self) -> int:
-		return self.uuid.__hash__()
+	@property
+	def result_url_hash(self) -> str:
+		input_hash_bytes = self.input_hash.to_bytes(length=8, byteorder="big", signed=True)
+		return base64.urlsafe_b64encode(input_hash_bytes).decode("utf-8")
 
-uuid_to_generated_tiles_map: dict[uuid.UUID, GeneratedTiles] = {}
-prompt_to_last_uuid_map: dict[str, uuid.UUID] = {}
+	def __hash__(self):
+		return self.input_hash
 
-remove_scheduled: set[GeneratedTiles] = set()
+	@staticmethod
+	def result_url_hash_to_input_hash(result_url_hash: str):
+		hash_bytes = base64.urlsafe_b64decode(result_url_hash.encode("utf-8"))
+		input_hash = int.from_bytes(hash_bytes, byteorder="big", signed=True)
+		return input_hash
 
-@app.route("/results/<uuid:uuid>", methods=["GET"])
-async def results(uuid: str):
-	generated_tile = uuid_to_generated_tiles_map.get(uuid, None)
+input_hash_to_generated_tiles_map: dict[int, GeneratedTiles] = {}
 
-	if generated_tile is None:
-		response = await make_response("Invalid UUID")
+scheduled_to_remove: set[str] = set()
+
+@app.route("/results/<string:result_url_hash>", methods=["GET"])
+async def results(result_url_hash: str):
+	input_hash = GeneratedTiles.result_url_hash_to_input_hash(result_url_hash)
+	generated_tiles = input_hash_to_generated_tiles_map.get(input_hash, None)
+
+	if generated_tiles is None:
+		response = await make_response("Unknown hash")
 		response.status_code = 400
 		return response
 
 
-	blob = generated_tile.tmp.read()
-	generated_tile.tmp.seek(0)
-	remove_scheduled.add(generated_tile)
+	blob = generated_tiles.tmp.read()
+	generated_tiles.tmp.seek(0)
+	scheduled_to_remove.add(input_hash)
 
 	response = await make_response(blob)
 	response.headers.add('Content-Type', 'image/gif')
@@ -127,7 +138,9 @@ async def text():
 	status_code = 200
 
 	if prompt is not None:
-		if prompt not in prompt_to_last_uuid_map or prompt_to_last_uuid_map[prompt] not in uuid_to_generated_tiles_map:
+		input_hash = hash((prompt, options))
+
+		if input_hash not in input_hash_to_generated_tiles_map:
 			try:
 				r = await render_tiles(prompt, is_rule=True, options=options.to_base_options())
 				buffer = r.buffer
@@ -140,14 +153,12 @@ async def text():
 				tmp.seek(0)
 
 				generated_tiles = GeneratedTiles(
-					prompt=prompt,
-					uuid=uuid.uuid4(),
+					input_hash=input_hash,
 					tmp=tmp
 				)
-				uuid_to_generated_tiles_map[generated_tiles.uuid] = generated_tiles
-				prompt_to_last_uuid_map[prompt] = generated_tiles.uuid
+				input_hash_to_generated_tiles_map[input_hash] = generated_tiles
 		else:
-			generated_tiles = uuid_to_generated_tiles_map[prompt_to_last_uuid_map[prompt]]
+			generated_tiles = input_hash_to_generated_tiles_map[input_hash]
 
 	response = await make_response(await render_template("text.html",
 		prompt=prompt,
@@ -167,7 +178,7 @@ async def do_load():
 	load_done = True
 
 async def remove_scheduled_loop():
-	global remove_scheduled
+	global scheduled_to_remove
 
 	# TODO(netux): make configurable
 	MAX_LIFE = timedelta(hours=1)
@@ -177,13 +188,18 @@ async def remove_scheduled_loop():
 
 		now = datetime.now()
 
-		for generated_tile in remove_scheduled:
+		new_scheduled_to_remove = { *scheduled_to_remove }
+
+		for input_hash in scheduled_to_remove:
+			generated_tile = input_hash_to_generated_tiles_map[input_hash]
 			if (generated_tile.generated_at + MAX_LIFE) > now:
 				print("Removing", generated_tile)
-				uuid_to_generated_tiles_map.pop(generated_tile.uuid)
-				prompt_to_last_uuid_map.pop(generated_tile.prompt)
+				input_hash_to_generated_tiles_map.pop(input_hash)
 				generated_tile.tmp.close()
-				remove_scheduled.pop(generated_tile)
+
+				new_scheduled_to_remove.remove(input_hash)
+
+		scheduled_to_remove = new_scheduled_to_remove
 
 if __name__ == "__main__":
 	loop = asyncio.new_event_loop()
