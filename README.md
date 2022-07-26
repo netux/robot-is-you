@@ -12,7 +12,9 @@ Looking for the README for ROBOT? Check [the original repository](https://github
 
 Please follow the terms of the license!
 
-Install the requirements: `pip install -r requirements.txt`.
+It is recommended to use a virtual environment: `python3 -m venv .venv`, then `source .venv/path_to_active_script_for_your_system`.
+
+Install the requirements: `python3 -m pip install -r requirements.txt`.
 
 Run the webapp using `python3 WEBAPP.py`.
 
