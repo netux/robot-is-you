@@ -3,14 +3,18 @@ import configparser
 import itertools
 import json
 import re
+import io
 import pathlib
+from PIL import Image, ImageChops, ImageDraw
 from typing import Any
 
 from quart import current_app
 
 from .. import constants
-from ..db import Database
+from ..db import Database, TileData
 from .context import get_database
+
+#region Tiles
 
 async def load_initial_tiles(db: Database):
 	'''Loads tile data from `data/values.lua` and `.ld` files.'''
@@ -351,15 +355,203 @@ async def load_custom_tiles(db: Database):
 				hacks
 			)
 
-async def load():
-	current_app.logger.info("Loading...")
-	db = await get_database()
-	current_app.logger.info("Got database")
+async def load_all_tiles(db: Database):
 	await load_initial_tiles(db)
 	current_app.logger.info("Loaded initial tiles")
 	await load_editor_tiles(db)
 	current_app.logger.info("Loaded editor tiles")
 	await load_custom_tiles(db)
 	current_app.logger.info("Loaded custom tiles")
+
+#endregion Tiles
+
+#region Letters
+
+async def _load_ready_letters(db: Database):
+	def channel_shenanigans(im: Image.Image) -> Image.Image:
+		if im.mode == "1":
+			return im
+		elif im.mode == "RGB" or im.mode == "L":
+			return im.convert("1")
+		return im.convert("RGBA").getchannel("A").convert("1")
+	data = []
+	for path in pathlib.Path("data/letters").glob("*/*/*/*_0.png"):
+		_, _, mode, char, w, name = path.parts
+		char = char.replace("asterisk", "*")
+		width = int(w)
+		prefix = name[:-6]
+		# mo ch w h
+		buf_0 = io.BytesIO()
+		channel_shenanigans(Image.open(path)).save(buf_0, format="PNG")
+		blob_0 = buf_0.getvalue()
+		buf_1 = io.BytesIO()
+		channel_shenanigans(Image.open(path.parent / f"{prefix}_1.png")).save(buf_1, format="PNG")
+		blob_1 = buf_1.getvalue()
+		buf_2 = io.BytesIO()
+		channel_shenanigans(Image.open(path.parent / f"{prefix}_2.png")).save(buf_2, format="PNG")
+		blob_2 = buf_2.getvalue()
+		data.append((mode, char, width, blob_0, blob_1, blob_2))
+
+	await db.conn.executemany(
+		'''
+		INSERT INTO letters
+		VALUES (?, ?, ?, ?, ?, ?)
+		''',
+		data
+	)
+
+async def _load_letter(db: Database, word: str, tile_type: int):
+	'''Scrapes letters from a sprite.'''
+	chars = word[5:] # Strip "text_" prefix
+
+	# Get the number of rows
+	two_rows = len(chars) >= 4
+
+	# Background plates for type-2 text,
+	# in 1 bit per pixel depth
+	plates = [db.plate(None, i)[0].getchannel("A").convert("1") for i in range(3)]
+
+	# Maps each character to three bounding boxes + images
+	# (One box + image for each frame of animation)
+	# char_pos : [((x1, y1, x2, y2), Image), ...]
+	char_sizes: dict[tuple[int, str], Any] = {}
+
+	# Scrape the sprites for the sprite characters in each of the three frames
+	for i, plate in enumerate(plates):
+		# Get the alpha channel in 1-bit depth
+		alpha = Image.open(f"data/sprites/{constants.BABA_WORLD}/{word}_0_{i + 1}.png") \
+			.convert("RGBA") \
+			.getchannel("A") \
+			.convert("1")
+
+		# Type-2 text has inverted text on a background plate
+		if tile_type == 2:
+			alpha = ImageChops.invert(alpha)
+			alpha = ImageChops.logical_and(alpha, plate)
+
+
+		# Get the point from which characters are seeked for
+		x = 0
+		y = 6 if two_rows else 12
+
+		# Flags
+		skip = False
+
+		# More than 1 bit per pixel is required for the flood fill
+		alpha = alpha.convert("L")
+		for i, char in enumerate(chars):
+			if skip:
+				skip = False
+				continue
+
+			while alpha.getpixel((x, y)) == 0:
+				if x == alpha.width - 1:
+					if two_rows and y == 6:
+						x = 0
+						y = 18
+					else:
+						break
+				else:
+					x += 1
+			# There's a letter at this position
+			else:
+				clone = alpha.copy()
+				ImageDraw.floodfill(clone, (x, y), 128) # 1 placeholder
+				clone = Image.eval(clone, lambda x: 255 if x == 128 else 0)
+				clone = clone.convert("1")
+
+				# Get bounds of character blob
+				x1, y1, x2, y2 = clone.getbbox() # type: ignore
+				# Run some checks
+				# # Too wide => Skip 2 characters (probably merged two chars)
+				# if x2 - x1 > (1.5 * alpha.width * (1 + two_rows) / len(chars)):
+				#     skip = True
+				#     alpha = ImageChops.difference(alpha, clone)
+				#     continue
+
+				# Too tall? Scrap the rest of the characters
+				if y2 - y1 > 1.5 * alpha.height / (1 + two_rows):
+					break
+
+				# too thin! bad letter.
+				if x2 - x1 <= 2:
+					alpha = ImageChops.difference(alpha, clone)
+					continue
+
+				# Remove character from sprite, push to char_sizes
+				alpha = ImageChops.difference(alpha, clone)
+				clone = clone.crop((x1, y1, x2, y2))
+				entry = ((x1, y1, x2, y2), clone)
+				char_sizes.setdefault((i, char), []).append(entry)
+				continue
+			return
+
+	results = []
+	for (char_idx, char), entries in char_sizes.items():
+		# All three frames clearly found the character in the sprite
+		if len(entries) == 3:
+			x1_min = min(entries, key=lambda x: x[0][0])[0][0]
+			y1_min = min(entries, key=lambda x: x[0][1])[0][1]
+			x2_max = max(entries, key=lambda x: x[0][2])[0][2]
+			y2_max = max(entries, key=lambda x: x[0][3])[0][3]
+
+			blobs = []
+			mode = "small" if two_rows else "big"
+			width = 0
+			height = 0
+			for i, ((x1, y1, _, _), img) in enumerate(entries):
+				frame = Image.new("1", (x2_max - x1_min, y2_max - y1_min))
+				frame.paste(img, (x1 - x1_min, y1 - y1_min))
+				width, height = frame.size
+				buf = io.BytesIO()
+				frame.save(buf, format="PNG")
+				blobs.append(buf.getvalue())
+			current_app.logger.debug(f"Loading letter {char} in {mode} with width {width} and sprite cnt {len(blobs)}. Char idx {char_idx} of word {word}.")
+			results.append([mode, char, width, *blobs])
+
+	cur = await db.conn.executemany(
+		'''
+		INSERT INTO letters
+		VALUES (?, ?, ?, ?, ?, ?);
+		''',
+		results
+	)
+	await cur.close() # NOTE(netux): helps prevent overloading sqlite
+
+async def load_vanilla_letters(db: Database):
+	ignored = json.load(open("config/letterignore.json"))
+	for row in await db.conn.fetchall(
+		f'''
+		SELECT * FROM tiles
+		WHERE sprite LIKE "text\\___%" ESCAPE "\\"
+				AND source == {repr(constants.BABA_WORLD)}
+				AND text_direction IS NULL;
+		'''
+	):
+		data = TileData.from_row(row)
+		if data.sprite not in ignored:
+			await _load_letter(
+				db,
+				data.sprite,
+				data.text_type # type: ignore
+			)
+
+	await _load_ready_letters(db)
+
+async def load_all_letters(db: Database):
+	await load_vanilla_letters(db)
+	current_app.logger.info("Loaded vanilla letters")
+
+#endregion Letters
+
+async def load():
+	current_app.logger.info("Loading...")
+
+	db = await get_database()
+	current_app.logger.info("Got database")
+
+	await load_all_tiles(db)
+	await load_all_letters(db)
+
 	current_app.logger.info("Ready!")
 
