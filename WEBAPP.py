@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import math
 import tempfile
 import dataclasses
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
 import quart
@@ -63,6 +64,10 @@ class GeneratedTiles:
 		input_hash_bytes = self.input_hash.to_bytes(length=8, byteorder="big", signed=True)
 		return base64.urlsafe_b64encode(input_hash_bytes).decode("utf-8")
 
+	@property
+	def expires_at(self) -> datetime:
+		return self.generated_at + webapp_max_result_life
+
 	def __hash__(self):
 		return self.input_hash
 
@@ -92,7 +97,8 @@ async def results(result_url_hash: str):
 	scheduled_to_remove.add(input_hash)
 
 	response = await make_response(blob)
-	response.headers.add('Content-Type', 'image/gif')
+	response.content_type = "image/gif"
+	response.cache_control.max_age = math.floor((generated_tiles.expires_at - datetime.now()).total_seconds())
 	return response
 
 @dataclasses.dataclass(frozen=True)
@@ -189,9 +195,6 @@ async def do_load():
 async def remove_scheduled_loop():
 	global scheduled_to_remove
 
-	# TODO(netux): make configurable
-	MAX_LIFE = timedelta(hours=1)
-
 	while True:
 		await asyncio.sleep(1)
 
@@ -201,7 +204,7 @@ async def remove_scheduled_loop():
 
 		for input_hash in scheduled_to_remove:
 			generated_tile = input_hash_to_generated_tiles_map[input_hash]
-			if now > (generated_tile.generated_at + MAX_LIFE):
+			if now > generated_tile.expires_at:
 				app.logger.info(f"Removing {repr(generated_tile)}")
 				input_hash_to_generated_tiles_map.pop(input_hash)
 				generated_tile.tmp.close()

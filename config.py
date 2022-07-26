@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import discord
 
 activity = "ROBOT IS HELP"
@@ -23,3 +25,4 @@ cogs = [
 
 webapp_host = "0.0.0.0"
 webapp_port = 5000
+webapp_max_result_life = timedelta(hours=1)
