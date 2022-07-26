@@ -7,8 +7,8 @@ services:
       dockerfile: WEBAPP.Dockerfile
     ports:
       - 53907:5000
+  # TODO(netux): create Dockerfile for ROBOT
   # robot:
-  #   # TODO(netux): add Robot Dockerfile
   #   build:
   #     context: .
   #     dockerfile: ROBOT.Dockerfile

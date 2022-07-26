@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy source code
 COPY src ./src
-COPY auth.py config.py WEBAPP.py ./
+COPY config.py WEBAPP.py ./
 
 # Copy data
 COPY config/ ./config
