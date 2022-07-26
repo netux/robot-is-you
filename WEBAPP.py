@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import tempfile
 import dataclasses
 from datetime import datetime, timedelta
@@ -17,6 +18,11 @@ from src.web.util import RenderTilesOptions, render_tiles
 from src.web.context import teardown_appcontext
 
 app = quart.Quart(__name__, template_folder="src/web/templates", static_folder="src/web/static")
+
+@app.teardown_appcontext
+async def teardown(err):
+	await teardown_appcontext(err)
+
 load_done = False
 
 def not_ready_fallback(f):
@@ -210,9 +216,11 @@ if __name__ == "__main__":
 	loop.create_task(do_load())
 	loop.create_task(remove_scheduled_loop())
 
-	@app.teardown_appcontext
-	async def teardown(err):
-		await teardown_appcontext(err)
+	app.logger.setLevel(
+		logging.DEBUG
+		if quart.helpers.get_debug_flag()
+		else logging.INFO
+	)
 
 	try:
 		# TODO(netux): With this setup, the reloader in debug mode just exits the process.
