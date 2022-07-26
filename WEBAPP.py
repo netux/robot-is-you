@@ -10,7 +10,7 @@ from typing import Optional
 import quart
 from quart import render_template, request, make_response
 
-from .config import *
+from config import *
 from src import errors
 from src.web.load import load
 from src.web.util import RenderTilesOptions, render_tiles
