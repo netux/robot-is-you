@@ -14,13 +14,13 @@ Please follow the terms of the license!
 
 Install the requirements: `pip install -r requirements.txt`.
 
-Run the bot using `python3 WEBAPP.py`.
-
-(The bot may not work properly on Windows, as it makes use of some unix-ish shell commands for the convenience of the programmer.)
+Run the webapp using `python3 WEBAPP.py`.
 
 ## Required files
 
-Bot/webapp configuration is in `config.py`. Right now, the webapp only uses:
+Bot/webapp configuration is in `config.py`. Of all the values defined there, the webapp uses:
 
 * `db_path`: `str` - The path to the sqlite3 database used by the bot.
+* `webapp_host`: `str` - Hostname to listen on.
+* `webapp_port`: `int` - Port to listen on.
 

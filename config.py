@@ -20,3 +20,6 @@ cogs = [
     "src.cogs.operations",
     "jishaku"
 ]
+
+webapp_host = "0.0.0.0"
+webapp_port = 53907

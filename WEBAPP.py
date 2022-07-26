@@ -8,14 +8,15 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import quart
-from quart import Quart, render_template, request, make_response
+from quart import render_template, request, make_response
 
+from .config import *
 from src import errors
 from src.web.load import load
 from src.web.util import RenderTilesOptions, render_tiles
 from src.web.context import teardown_appcontext
 
-app = Quart(__name__, template_folder="src/web/templates", static_folder="src/web/static")
+app = quart.Quart(__name__, template_folder="src/web/templates", static_folder="src/web/static")
 load_done = False
 
 def not_ready_fallback(f):
@@ -213,7 +214,12 @@ if __name__ == "__main__":
 	try:
 		# TODO(netux): With this setup, the reloader in debug mode just exits the process.
 		# Figure out a way to reload the module instead.
-		app.run(loop=loop, use_reloader=False)
+		app.run(
+			host=webapp_host,
+			port=webapp_port,
+			loop=loop,
+			use_reloader=False
+		)
 	except KeyboardInterrupt:
 		pass
 	finally:
