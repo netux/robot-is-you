@@ -7,13 +7,14 @@ from io import BytesIO
 from os import listdir
 from dataclasses import dataclass
 
+import lark
 from lark.lexer import Token
 from lark.tree import Tree
 
 from .. import constants, errors
 from ..tile import RawTile
 
-from .context import get_database, get_operation_macros, get_variant_handlers, get_renderer, get_lark
+from .context import get_database, get_operation_macros, get_variant_handlers, get_renderer, get_lark_parser
 
 async def handle_variant_errors(err: errors.VariantError):
 	'''Handle errors raised in a command context by variant handlers'''
@@ -221,7 +222,7 @@ async def render_tiles(
 	operation_macros = await get_operation_macros()
 	variant_handlers = await get_variant_handlers()
 	renderer = await get_renderer()
-	lark = await get_lark()
+	lark_parser = await get_lark_parser()
 
 	start = time()
 	tiles = normalize_objects(objects)
@@ -261,13 +262,13 @@ async def render_tiles(
 			row_maybe = row.strip()
 			if not row_maybe:
 				continue
-			tree = lark.parse(row_maybe)
+			tree = lark_parser.parse(row_maybe)
 		except lark.UnexpectedCharacters as e:
 			raise errors.WebappUserError(f"Invalid character `{e.char}` in row {y}, around `... {row[e.column - 5: e.column + 5]} ...`")
 			# return await ctx.error(f"Invalid character `{e.char}` in row {y}, around `... {row[e.column - 5: e.column + 5]} ...`")
 		except lark.UnexpectedToken as e:
 			mistake_kind = e.match_examples(
-				lark.parse,
+				lark_parser.parse,
 				{
 					"unclosed": [
 						"(baba",

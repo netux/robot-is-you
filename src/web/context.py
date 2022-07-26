@@ -35,7 +35,7 @@ async def get_renderer() -> Renderer:
 
 	return g.renderer
 
-async def get_lark() -> Lark:
+async def get_lark_parser() -> Lark:
 	if 'lark' not in g:
 		with open("src/tile_grammar.lark") as _f:
 			g.lark = Lark(_f.read(), start="row", parser="lalr")
