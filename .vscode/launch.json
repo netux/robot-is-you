@@ -21,7 +21,7 @@
 				"QUART_ENV": "development"
 			},
 			"jinja": true,
-			"justMyCode": true
+			"justMyCode": false
 		}
 	]
 }
