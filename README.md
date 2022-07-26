@@ -25,4 +25,5 @@ Bot/webapp configuration is in `config.py`. Of all the values defined there, the
 * `db_path`: `str` - The path to the sqlite3 database used by the bot.
 * `webapp_host`: `str` - Hostname to listen on.
 * `webapp_port`: `int` - Port to listen on.
+* `webapp_max_result_life`: `datetime.timedelta` - Amount of time a result lives on the server before it is removed.
 
