@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  webapp:
+    build:
+      context: .
+      dockerfile: WEBAPP.Dockerfile
+    ports:
+      - 53907:5000
+  # robot:
+  #   # TODO(netux): add Robot Dockerfile
+  #   build:
+  #     context: .
+  #     dockerfile: ROBOT.Dockerfile
