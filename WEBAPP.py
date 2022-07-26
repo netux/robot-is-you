@@ -102,7 +102,10 @@ class WebappRenderTilesOptions:
 	def to_base_options(self):
 		opts = {}
 		if self.use_bg:
-			opts["background"] = (self.bg_tx, self.bg_ty)
+			opts["background"] = (
+				self.bg_tx if self.bg_tx is not None else 1,
+				self.bg_ty if self.bg_ty is not None else 4
+			)
 		if self.palette is not None:
 			opts["palette"] = self.palette
 		if self.default_to_letters is not None:
