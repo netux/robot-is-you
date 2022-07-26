@@ -193,7 +193,7 @@ async def remove_scheduled_loop():
 		for input_hash in scheduled_to_remove:
 			generated_tile = input_hash_to_generated_tiles_map[input_hash]
 			if now > (generated_tile.generated_at + MAX_LIFE):
-				app.logger.info("Removing", generated_tile)
+				app.logger.info(f"Removing {repr(generated_tile)}")
 				input_hash_to_generated_tiles_map.pop(input_hash)
 				generated_tile.tmp.close()
 
