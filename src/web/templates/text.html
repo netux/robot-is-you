@@ -26,6 +26,21 @@
 			margin: 0.5em 0;
 		}
 
+		body {
+			position: absolute;
+			margin: 0;
+			width: 100%;
+			height: 100%;
+			display: flex;
+			flex-direction: column;
+		}
+
+		main {
+			padding: 8px;
+			overflow: auto;
+			height: 100%;
+		}
+
 		summary {
 			cursor: pointer;
 		}
@@ -35,6 +50,12 @@
 			font-size: 85%;
 			border-radius: 6px;
 			background-color: lightgrey;
+		}
+
+		footer {
+			border-top: 1px solid black;
+			opacity: grey;
+			font-style: italic;
 		}
 
 		#input [name="prompt"] {
@@ -87,106 +108,111 @@
 	</style>
 </head>
 <body>
-	<form id="input">
-		<div>
-			<label for="prompt"><b>Prompt</b>:</label>
-			<textarea name="prompt">{{ prompt or "" }}</textarea>
-		</div>
-		<details>
-			<summary>Cheatsheet</summary>
-
-			<h4>Variants, Operations & Transformations</h4>
-			<ul>
-				<li><code>:variant</code>: Append <code>:variant</code> to a tile to change color or sprite of a tile. <a href="{# TODO(netux): implement #}">See all variants</a>.</li>
-				<li><code>!operation</code>: Apply a macro operation to a tile. <a href="{# TODO(netux): implement #}">See all operations</a>.</li>
-				<li><code>&gt;</code>: Transform the tile on the left to the tile on the right! Examples: <code>baba&gt;keke</code>, <code>rock&gt;&gt;&gt;flag&gt;dust&gt;&gt;-</code></li>
-			</ul>
-
-			<h4>Useful tips:</h4>
-			<ul>
-				<li><code>-</code>: Shortcut for an empty tile.</li>
-				<li><code>&</code>: Stacks tiles on top of each other. The left-most tiles will be behind the right-most tiles.</li>
-				<li><code>tile_</code>: <code>tile_object</code> renders regular objects.</li>
-				<li><code>,</code>: <code>tile_x,y,...</code> is expanded into <code>tile_x tile_y ...</code></li>
-				<li><code>(baba keke)</code> groups tiles together, for easier variants</li>
-				{# <li><code>"baba is you"</code> makes all the tiles inside text</li> #} {# TODO(netux): this seems to be broken #}
-				<li><code>[baba keke me]</code> makes all the tiles inside objects</li>
-			</ul>
-
-			<h4>Example commands:</h4>
-			<p>Click to use</p>
-			<ul>
-				<li><a href="#" class="example-prompt">baba is you</a></li>
-				<li><a href="#" class="example-prompt">rock is win - tile_rock&tile_baba</a></li>
-				<li><a href="#" class="example-prompt">tile_baba on baba is word</a></li>
-				<li><a href="#" class="example-prompt">baba eat baba - tile_baba tile_baba:l</a></li>
-			</ul>
-		</details>
-
-		<br />
-
-		<fieldset>
-			<legend>Options:</legend>
-
-			{# TODO(netux): implement palette #}
-
+	<main>
+		<form id="input">
 			<div>
-				<label for="use_bg">Use background</label>
-				<input name="use_bg" type="checkbox" {% if options.use_bg %}checked{% endif %} />
+				<label for="prompt"><b>Prompt</b>:</label>
+				<textarea name="prompt">{{ prompt or "" }}</textarea>
 			</div>
-			<div>
-				{# TODO(netux): implement color picker based on palette instead #}
-				<label for="bg_tx bg_ty">Background (tx, ty):</label>
-				<input name="bg_tx" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="6" value="{{ options.bg_tx or 0 }}" />
-				<input name="bg_ty" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="4" value="{{ options.bg_ty or 4 }}" />
-			</div>
-
 			<details>
-				<summary>Advanced</summary>
-				<div>
-					<label for="delay">Delay between frames:</label>
-					<input name="delay" style="width: 7ch;" type="number" min="1" max="1000" value="{{ options.delay or 200 }}" />
-					ms
-					<div id="small-delay-warning" class="warning" style="display: none;">
-						A delay smaller than 20ms is rendered as much slower in most programs (e.g. browsers)
-					</div>
-				</div>
+				<summary>Cheatsheet</summary>
 
-				<div>
-					<label for="frame_count">Amount of frames:</label>
-					<input name="frame_count" style="width: 5ch;" type="number" min="1" max="3" value="{{ options.frame_count or 3 }}" />
-					frames
-				</div>
+				<h4>Variants, Operations & Transformations</h4>
+				<ul>
+					<li><code>:variant</code>: Append <code>:variant</code> to a tile to change color or sprite of a tile. <a href="{# TODO(netux): implement #}">See all variants</a>.</li>
+					<li><code>!operation</code>: Apply a macro operation to a tile. <a href="{# TODO(netux): implement #}">See all operations</a>.</li>
+					<li><code>&gt;</code>: Transform the tile on the left to the tile on the right! Examples: <code>baba&gt;keke</code>, <code>rock&gt;&gt;&gt;flag&gt;dust&gt;&gt;-</code></li>
+				</ul>
 
-				<div>
-					{# TODO(netux): Figure out examples for this #}
-					<label for="default_to_letters">Use letter mode for custom two-letter tiles</label>
-					<input name="default_to_letters" type="checkbox" {% if options.default_to_letters %}checked{% endif %} />
-				</div>
+				<h4>Useful tips:</h4>
+				<ul>
+					<li><code>-</code>: Shortcut for an empty tile.</li>
+					<li><code>&</code>: Stacks tiles on top of each other. The left-most tiles will be behind the right-most tiles.</li>
+					<li><code>tile_</code>: <code>tile_object</code> renders regular objects.</li>
+					<li><code>,</code>: <code>tile_x,y,...</code> is expanded into <code>tile_x tile_y ...</code></li>
+					<li><code>(baba keke)</code> groups tiles together, for easier variants</li>
+					{# <li><code>"baba is you"</code> makes all the tiles inside text</li> #} {# TODO(netux): this seems to be broken #}
+					<li><code>[baba keke me]</code> makes all the tiles inside objects</li>
+				</ul>
+
+				<h4>Example commands:</h4>
+				<p>Click to use</p>
+				<ul>
+					<li><a href="#" class="example-prompt">baba is you</a></li>
+					<li><a href="#" class="example-prompt">rock is win - tile_rock&tile_baba</a></li>
+					<li><a href="#" class="example-prompt">tile_baba on baba is word</a></li>
+					<li><a href="#" class="example-prompt">baba eat baba - tile_baba tile_baba:l</a></li>
+				</ul>
 			</details>
-		</fieldset>
 
-		<br />
+			<br />
 
-		<input type="submit" value="Render" />
-	</form>
+			<fieldset>
+				<legend>Options:</legend>
 
-	<hr />
+				{# TODO(netux): implement palette #}
 
-	{% if error_msg is none %}
-		{% if generated_tiles is not none %}
-			<p>Result:</p>
-			<div id="result" class="bg-checkerboard">
-				<img src="./results/{{ generated_tiles.result_url_hash }}" />
+				<div>
+					<label for="use_bg">Use background</label>
+					<input name="use_bg" type="checkbox" {% if options.use_bg %}checked{% endif %} />
+				</div>
+				<div>
+					{# TODO(netux): implement color picker based on palette instead #}
+					<label for="bg_tx bg_ty">Background (tx, ty):</label>
+					<input name="bg_tx" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="6" value="{{ options.bg_tx or 0 }}" />
+					<input name="bg_ty" class="only-if-use_bg" style="width: 5ch;" type="number" min="0" max="4" value="{{ options.bg_ty or 4 }}" />
+				</div>
+
+				<details>
+					<summary>Advanced</summary>
+					<div>
+						<label for="delay">Delay between frames:</label>
+						<input name="delay" style="width: 7ch;" type="number" min="1" max="1000" value="{{ options.delay or 200 }}" />
+						ms
+						<div id="small-delay-warning" class="warning" style="display: none;">
+							A delay smaller than 20ms is rendered as much slower in most programs (e.g. browsers)
+						</div>
+					</div>
+
+					<div>
+						<label for="frame_count">Amount of frames:</label>
+						<input name="frame_count" style="width: 5ch;" type="number" min="1" max="3" value="{{ options.frame_count or 3 }}" />
+						frames
+					</div>
+
+					<div>
+						{# TODO(netux): Figure out examples for this #}
+						<label for="default_to_letters">Use letter mode for custom two-letter tiles</label>
+						<input name="default_to_letters" type="checkbox" {% if options.default_to_letters %}checked{% endif %} />
+					</div>
+				</details>
+			</fieldset>
+
+			<br />
+
+			<input type="submit" value="Render" />
+		</form>
+
+		<hr />
+
+		{% if error_msg is none %}
+			{% if generated_tiles is not none %}
+				<p>Result:</p>
+				<div id="result" class="bg-checkerboard">
+					<img src="./results/{{ generated_tiles.result_url_hash }}" />
+				</div>
+				<p class="info">Results are deleted from the server after 1 hour{# TODO(netux): take time from configuration #}</p>
+			{% endif %}
+		{% else %}
+			<div id="error">
+				<h4>Error</h4>
+				<p>{{ error_msg }}</p>
 			</div>
-			<p class="info">Results are deleted from the server after 1 hour{# TODO(netux): take time from configuration #}</p>
 		{% endif %}
-	{% else %}
-		<div id="error">
-			<h4>Error</h4>
-			<p>{{ error_msg }}</p>
-		</div>
-	{% endif %}
+	</main>
+	<footer>
+		Based on the <a href="https://github.com/RocketRace/robot-is-you">ROBOT IS YOU</a> Discord bot by <a href="https://github.com/RocketRace">@RocketRace</a>.
+	</footer>
 
 	<script>
 		/* handle example prompt clicks */ {
