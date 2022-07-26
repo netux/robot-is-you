@@ -66,7 +66,7 @@
 		}
 
 		.info {
-			color: blue;
+			color: darkblue;
 		}
 		.info::before {
 			content: "❗";
@@ -173,7 +173,10 @@
 	{% if error_msg is none %}
 		{% if generated_tiles is not none %}
 			<p>Result:</p>
-			<img id="result" class="bg-checkerboard" src="./results/{{ generated_tiles.result_url_hash }}" />
+			<div id="result" class="bg-checkerboard">
+				<img src="./results/{{ generated_tiles.result_url_hash }}" />
+			</div>
+			<p class="info">Results are deleted from the server after 1 hour{# TODO(netux): take time from configuration #}</p>
 		{% endif %}
 	{% else %}
 		<div id="error">
