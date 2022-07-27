@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy source code
 COPY src ./src
-COPY config.py WEBAPP.py ./
+COPY config.py loader.py WEBAPP.py ./
 
 # Copy data
 COPY config/ ./config
@@ -18,6 +18,8 @@ RUN apt-get update -y && \
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-EXPOSE 5000
+# Load data onto the database
+RUN python loader.py
 
+EXPOSE 5000
 ENTRYPOINT [ "python", "WEBAPP.py" ]
