@@ -22,20 +22,21 @@ class LoadFlagHandlers:
 		self.description: str = description
 		self.fn: Callable = fn
 
-	async def __call__(self, db: Database, *args, **kwargs):
-		async with db.conn.cursor() as cur:
-			await cur.execute(
-				'''
-				SELECT true FROM load_flags
-				WHERE flag = ?
-				''',
-				(self.flag,)
-			)
-			skip_load = await cur.fetchone()
+	async def __call__(self, db: Database, *args, skip_flag_check: bool = False, **kwargs):
+		if not skip_flag_check:
+			async with db.conn.cursor() as cur:
+				await cur.execute(
+					'''
+					SELECT true FROM load_flags
+					WHERE flag = ?
+					''',
+					(self.flag,)
+				)
+				skip_load = await cur.fetchone()
 
-		if skip_load:
-			logger.info(f"Skipping load of {self.description} as load flag {self.flag} is set on the database")
-			return
+			if skip_load:
+				logger.info(f"Skipping load of {self.description} as load flag {self.flag} is set on the database")
+				return
 
 		logger.info(f"Loading {self.description}")
 		await self.fn(db, *args, **kwargs)
@@ -583,10 +584,13 @@ loaders = [
 	load_vanilla_letters
 ]
 
-async def load(db: Database):
+async def load(db: Database, force_flags: list[str] = []):
+	import fnmatch
+
 	logger.info("Loading...")
 
 	for loader in loaders:
-		await loader(db)
+		force_load = any(fnmatch.fnmatch(loader.flag, forced_flag) for forced_flag in force_flags)
+		await loader(db, skip_flag_check=force_load)
 
 	logger.info("Loading done!")

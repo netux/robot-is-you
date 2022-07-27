@@ -7,7 +7,7 @@ async def main(args):
 	db = Database()
 	await db.connect(db_path)
 
-	await load(db)
+	await load(db, force_flags=args.force)
 
 
 if __name__ == "__main__":
@@ -16,7 +16,8 @@ if __name__ == "__main__":
 	import logging
 
 	args_parser = argparse.ArgumentParser()
-	args_parser.add_argument("--log_level", default="INFO")
+	args_parser.add_argument("--log-level", default="INFO")
+	args_parser.add_argument("--force", default=[], metavar="load_flag", nargs="+", type=str)
 	args = args_parser.parse_args()
 
 	logging.basicConfig(level=logging.WARNING)
