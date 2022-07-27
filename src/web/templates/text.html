@@ -176,7 +176,7 @@
 			{% if generated_tiles is not none %}
 				<p>Result:</p>
 				<div id="result" class="bg-checkerboard">
-					<img src="./results/{{ generated_tiles.result_url_hash }}" />
+					<img src="./results/{{ generated_tiles.result_url_hash }}.gif" />
 				</div>
 				<p class="info">Results are deleted from the server after 1 hour{# TODO(netux): take time from configuration #}</p>
 			{% endif %}

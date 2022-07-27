@@ -100,7 +100,7 @@ input_hash_to_generated_tiles_map: dict[int, GeneratedTiles] = {}
 
 scheduled_to_remove: set[str] = set()
 
-@app.route("/results/<string:result_url_hash>", methods=["GET"])
+@app.route("/results/<string:result_url_hash>.gif", methods=["GET"])
 async def results(result_url_hash: str):
 	input_hash = GeneratedTiles.result_url_hash_to_input_hash(result_url_hash)
 	generated_tiles = input_hash_to_generated_tiles_map.get(input_hash, None)
