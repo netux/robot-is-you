@@ -14,7 +14,8 @@ from quart import current_app
 from .. import constants
 from ..db import Database, TileData
 
-logger = current_app.logger if current_app else logging.getLogger(__name__)
+def get_logger():
+	return current_app.logger if current_app else logging.getLogger(__name__)
 
 class LoadFlagHandlers:
 	def __init__(self, flag: str, description: str, fn: Callable) -> None:
@@ -23,6 +24,8 @@ class LoadFlagHandlers:
 		self.fn: Callable = fn
 
 	async def __call__(self, db: Database, *args, skip_flag_check: bool = False, **kwargs):
+		logger = get_logger()
+
 		if not skip_flag_check:
 			async with db.conn.cursor() as cur:
 				await cur.execute(
@@ -437,6 +440,8 @@ async def _load_ready_letters(db: Database):
 
 async def _load_letter(db: Database, word: str, tile_type: int):
 	'''Scrapes letters from a sprite.'''
+	logger = get_logger()
+
 	chars = word[5:] # Strip "text_" prefix
 
 	# Get the number of rows
@@ -587,6 +592,7 @@ loaders = [
 async def load(db: Database, force_flags: list[str] = []):
 	import fnmatch
 
+	logger = get_logger()
 	logger.info("Loading...")
 
 	for loader in loaders:

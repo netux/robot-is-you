@@ -18,7 +18,7 @@ from config import *
 from src import errors
 from src.web.load import load
 from src.web.util import RenderTilesOptions, render_tiles
-from src.web.context import get_operation_macros, get_variant_handlers, teardown_appcontext
+from src.web.context import get_database, get_operation_macros, get_variant_handlers, teardown_appcontext
 
 app = quart.Quart(__name__, template_folder="src/web/templates", static_folder="src/web/static")
 
@@ -228,7 +228,8 @@ async def do_load():
 
 	load_done = False
 	async with app.app_context():
-		await load()
+		db = await get_database()
+		await load(db)
 	load_done = True
 
 async def remove_scheduled_loop():
