@@ -26,3 +26,4 @@ cogs = [
 webapp_host = "0.0.0.0"
 webapp_port = 5000
 webapp_max_result_life = timedelta(hours=1)
+webapp_route_prefix = "/webapp-is-you"

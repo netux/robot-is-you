@@ -19,8 +19,14 @@ from src import errors
 from src.web.load import load
 from src.web.util import RenderTilesOptions, render_tiles
 from src.web.context import get_database, get_operation_macros, get_variant_handlers, teardown_appcontext
+from src.web.middleware.path_prefix import RoutePrefixMiddleware
 
-app = quart.Quart(__name__, template_folder="src/web/templates", static_folder="src/web/static")
+app = quart.Quart(__name__,
+	template_folder="src/web/templates",
+	static_folder="src/web/static"
+)
+
+app.asgi_app = RoutePrefixMiddleware(app.asgi_app, prefix=webapp_route_prefix)
 
 @app.teardown_appcontext
 async def teardown(err):
