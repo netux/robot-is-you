@@ -2,6 +2,7 @@ import collections
 import configparser
 import itertools
 import json
+import logging
 import re
 import io
 import pathlib
@@ -12,7 +13,8 @@ from quart import current_app
 
 from .. import constants
 from ..db import Database, TileData
-from .context import get_database
+
+logger = current_app.logger if current_app else logging.getLogger(__name__)
 
 #region Tiles
 
@@ -357,11 +359,11 @@ async def load_custom_tiles(db: Database):
 
 async def load_all_tiles(db: Database):
 	await load_initial_tiles(db)
-	current_app.logger.info("Loaded initial tiles")
+	logger.info("Loaded initial tiles")
 	await load_editor_tiles(db)
-	current_app.logger.info("Loaded editor tiles")
+	logger.info("Loaded editor tiles")
 	await load_custom_tiles(db)
-	current_app.logger.info("Loaded custom tiles")
+	logger.info("Loaded custom tiles")
 
 #endregion Tiles
 
@@ -506,7 +508,7 @@ async def _load_letter(db: Database, word: str, tile_type: int):
 				buf = io.BytesIO()
 				frame.save(buf, format="PNG")
 				blobs.append(buf.getvalue())
-			current_app.logger.debug(f"Loading letter {char} in {mode} with width {width} and sprite cnt {len(blobs)}. Char idx {char_idx} of word {word}.")
+			logger.debug(f"Loading letter {char} in {mode} with width {width} and sprite cnt {len(blobs)}. Char idx {char_idx} of word {word}.")
 			results.append([mode, char, width, *blobs])
 
 	cur = await db.conn.executemany(
@@ -540,18 +542,14 @@ async def load_vanilla_letters(db: Database):
 
 async def load_all_letters(db: Database):
 	await load_vanilla_letters(db)
-	current_app.logger.info("Loaded vanilla letters")
+	logger.info("Loaded vanilla letters")
 
 #endregion Letters
 
-async def load():
-	current_app.logger.info("Loading...")
-
-	db = await get_database()
-	current_app.logger.info("Got database")
+async def load(db: Database):
+	logger.info("Loading...")
 
 	await load_all_tiles(db)
 	await load_all_letters(db)
 
-	current_app.logger.info("Ready!")
-
+	logger.info("Loading done!")
