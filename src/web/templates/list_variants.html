@@ -1,14 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8">
-	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-	<meta name='viewport' content='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no'/>
-	{% include 'favicon.html' %}
+{% extends "_layout.html" %}
+{% block head_contents %}
 	<title>WEBAPP HAS VARIANT</title>
-	<style>{% include "_layout.css" %}</style>
-</head>
-<body>
+{% endblock %}
+{% block body_contents %}
 	<h1>List of variants</h1>
 
 	{# TODO(netux): make UI prettier #}
@@ -26,5 +20,4 @@
 	<p><b>NOTE:</b> Direction, animation, sleep, and tiling variants also have a "soft" version (suffixes by "s" or "soft").</p>
 	{# TODO(netux): add input to filter valid variants for a given tile #}
 	<p><b>NOTE:</b> Some variants may not work for certain tiles.</p>
-</body>
-</html>
+{% endblock %}

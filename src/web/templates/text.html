@@ -1,14 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8">
-	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-	<meta name='viewport' content='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no'/>
+{% extends "_layout.html" %}
+{% block head_contents %}
 	<title>WEBAPP IS YOU</title>
-	{% include 'favicon.html' %}
-	<meta name="description" content="A web interface based on the ROBOT IS YOU Discord bot by RocketRace (https://github.com/RocketRace/robot-is-you)">
-	<meta name="author" content="Martín 'Netux' Rodriguez (https://me.netux.site)" />
-	<meta name="keywords" content="BABA, BABA IS YOU, ROBOT IS YOU, Python, Flask, Quart">
+{% endblock %}
+{% block styles %}
 	{# TODO(netux): add dark mode #}
 	{# TODO(netux): make mobile friendly #}
 	{# TODO(netux): use some styling framework? #}
@@ -84,8 +78,8 @@
 			text-decoration: none;
 		}
 	</style>
-</head>
-<body>
+{% endblock %}
+{% block body_contents %}
 	<main>
 		<form id="input">
 			<div>
@@ -242,5 +236,4 @@
 			updateSmallDelayWarning();
 		}
 	</script>
-</body>
-</html>
+{% endblock %}
