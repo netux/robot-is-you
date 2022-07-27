@@ -4,6 +4,7 @@ import asyncio
 import base64
 import logging
 import math
+import re
 import tempfile
 import dataclasses
 from datetime import datetime
@@ -11,18 +12,36 @@ from typing import Optional
 
 import quart
 from quart import render_template, request, make_response
+from markupsafe import Markup, escape
 
 from config import *
 from src import errors
 from src.web.load import load
 from src.web.util import RenderTilesOptions, render_tiles
-from src.web.context import teardown_appcontext
+from src.web.context import get_operation_macros, get_variant_handlers, teardown_appcontext
 
 app = quart.Quart(__name__, template_folder="src/web/templates", static_folder="src/web/static")
 
 @app.teardown_appcontext
 async def teardown(err):
 	await teardown_appcontext(err)
+
+DISCORD_MARKDOWN_INLINE_CODE_REGEXP: re.Pattern = re.compile(r"`([^`]+?)`")
+
+@app.template_filter("replace_discord_markdown")
+async def template_filter__replace_discord_markdown(value: str):
+	"""
+	Helper to render some very simple markdown from strings originally made for ROBOT.
+
+	! THIS IS NAIVE AND UNSAFE. DO NOT PROVIDE USER INPUT. !
+
+	Implemented so far:
+	- `inline-code` => <code>inline-code</code>
+	"""
+
+	value = escape(value)
+	value = DISCORD_MARKDOWN_INLINE_CODE_REGEXP.sub(lambda m: f"<code>{m[1]}</code>", value)
+	return Markup(value)
 
 load_done = False
 
@@ -142,6 +161,26 @@ class WebappRenderTilesOptions:
 			delay=coerce_request_arg_to_int(get("delay")),
 			frame_count=coerce_request_arg_to_int(get("frame_count"))
 		)
+
+@app.route("/list/variants")
+async def list_variants():
+	all_variants = (await get_variant_handlers()).handlers
+	grouped_variants: dict[str, list[str]] = {}
+	for variant in all_variants:
+		group = variant.group or "Uncategorized"
+		if group not in grouped_variants:
+			grouped_variants[group] = []
+		grouped_variants[group].extend(variant.hints.values())
+	return await render_template("list_variants.html",
+		variants=grouped_variants
+	)
+
+@app.route("/list/operations")
+async def list_operations():
+	operation_macros = await get_operation_macros()
+	return await render_template("list_operations.html",
+		operations=operation_macros.get_all()
+	)
 
 @app.route("/text", methods=["GET", "POST"])
 @not_ready_fallback

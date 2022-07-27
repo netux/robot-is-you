@@ -7,24 +7,12 @@
 	<title>WEBAPP IS YOU</title>
 	<meta name="description" content="A web interface based on the ROBOT IS YOU Discord bot by RocketRace (https://github.com/RocketRace/robot-is-you)">
 	<meta name="author" content="Martín 'Netux' Rodriguez (https://me.netux.site)" />
-	<meta name="keywords" content="BABA, BABA IS YOU, ROBOT IS YOU, Python, Flask">
+	<meta name="keywords" content="BABA, BABA IS YOU, ROBOT IS YOU, Python, Flask, Quart">
 	{# TODO(netux): add dark mode #}
 	{# TODO(netux): make mobile friendly #}
+	{# TODO(netux): use some styling framework? #}
 	<style>
-		html {
-			box-sizing: border-box;
-		}
-		*, *:before, *:after {
-			box-sizing: inherit;
-		}
-
-		body, input, textarea {
-			font-family: sans-serif;
-		}
-
-		h1, h2, h3, h4, h5, h6, p, ul, ol {
-			margin: 0.5em 0;
-		}
+		{% include '_layout.css' %}
 
 		body {
 			position: absolute;
@@ -39,17 +27,6 @@
 			padding: 8px;
 			overflow: auto;
 			height: 100%;
-		}
-
-		summary {
-			cursor: pointer;
-		}
-
-		code {
-			padding: 0.2em 0.4em;
-			font-size: 85%;
-			border-radius: 6px;
-			background-color: lightgrey;
 		}
 
 		footer {
@@ -119,8 +96,8 @@
 
 				<h4>Variants, Operations & Transformations</h4>
 				<ul>
-					<li><code>:variant</code>: Append <code>:variant</code> to a tile to change color or sprite of a tile. <a href="{# TODO(netux): implement #}">See all variants</a>.</li>
-					<li><code>!operation</code>: Apply a macro operation to a tile. <a href="{# TODO(netux): implement #}">See all operations</a>.</li>
+					<li><code>:variant</code>: Append <code>:variant</code> to a tile to change color or sprite of a tile. <a href="./list/variants" target="_pop">See all variants</a>.</li>
+					<li><code>!operation</code>: Apply a macro operation to a tile. <a href="./list/operations" target="_pop">See all operations</a>.</li>
 					<li><code>&gt;</code>: Transform the tile on the left to the tile on the right! Examples: <code>baba&gt;keke</code>, <code>rock&gt;&gt;&gt;flag&gt;dust&gt;&gt;-</code></li>
 				</ul>
 
@@ -224,6 +201,19 @@
 					ev.preventDefault();
 					promptInputEl.value = anchorEl.textContent;
 					formEl.submit();
+				});
+			}
+		}
+
+		/* handle click on target="_pop" anchors */ {
+			const anchorEls = document.querySelectorAll(`a[href][target="_pop"]`);
+			for (const anchorEl of anchorEls) {
+				anchorEl.addEventListener("click", (ev) => {
+					ev.preventDefault();
+
+					window.open(anchorEl.href, "_blank", {
+						popup: true
+					});
 				});
 			}
 		}
