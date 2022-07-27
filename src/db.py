@@ -27,17 +27,17 @@ class Database:
     async def close(self) -> None:
         '''Teardown'''
         await self.conn.close()
-    
+
     async def create_tables(self) -> None:
-        '''Creates tables in the database according to 
+        '''Creates tables in the database according to
         a schema in code. (Useful for documentation.)
         '''
         async with self.conn.cursor() as cur:
             await cur.execute(
                 # `name` is not specified to be a unique field.
-                # We allow multiple "versions" of a tile to exist, 
+                # We allow multiple "versions" of a tile to exist,
                 # to account for differences between "world" and "editor" tiles.
-                # One example of this is with `belt` -- its color inside levels 
+                # One example of this is with `belt` -- its color inside levels
                 # (which use "world" tiles) is different from its editor color.
                 # These versions are differentiated by `version`.
                 #
@@ -45,10 +45,10 @@ class Database:
                 # (i.e. all non-text tiles), only `active_color` fields are
                 # guaranteed to hold a meaningful, non-null value.
                 #
-                # `text_direction` defines whether a property text tile is 
-                # "pointed towards" any direction. It is null otherwise. 
+                # `text_direction` defines whether a property text tile is
+                # "pointed towards" any direction. It is null otherwise.
                 # The directions are right: 0, up: 8, left: 16, down: 24.
-                # 
+                #
                 # `tags` is a tab-delimited sequence of strings. The empty
                 # string denotes no tags.
                 '''
@@ -92,7 +92,7 @@ class Database:
                 '''
             )
             await cur.execute(
-                # There have been multiple valid formats of level 
+                # There have been multiple valid formats of level
                 # codes, so we don't assume a constant-width format.
                 '''
                 CREATE TABLE IF NOT EXISTS custom_levels (
@@ -133,12 +133,19 @@ class Database:
                 );
                 '''
             )
+            await cur.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS load_flags (
+                    flag TEXT PRIMARY KEY
+                )
+                '''
+            )
 
     async def tile(self, name: str, *, maximum_version: int = 1000) -> TileData | None:
         '''Convenience method to fetch a single thing of tile data. Returns None on failure.'''
         row = await self.conn.fetchone(
             '''
-            SELECT * FROM tiles 
+            SELECT * FROM tiles
             WHERE name == ? AND version <= ?
             ORDER BY version DESC;
             ''',
@@ -154,7 +161,7 @@ class Database:
             for name in names:
                 await cur.execute(
                     '''
-                    SELECT * FROM tiles 
+                    SELECT * FROM tiles
                     WHERE name == ? AND version < ?
                     ORDER BY version DESC;
                     ''',
@@ -163,7 +170,7 @@ class Database:
                 row = await cur.fetchone()
                 if row is not None:
                     yield TileData.from_row(row)
-    
+
     def plate(self, direction: int | None, wobble: int) -> tuple[Image.Image, tuple[int, int]]:
         '''Plate sprites. Raises FileNotFoundError on failure.'''
         if direction is None:
@@ -175,18 +182,18 @@ class Database:
             Image.open(f"data/plates/plate_property{DIRECTIONS[direction]}_0_{wobble+1}.png").convert("RGBA"),
             (3, 3)
         )
-    
+
     async def hints(self, world: str, level_id: str) -> Hints | None:
         '''The hints for a baba level'''
         hint = self.level_hints.get(level_id)
         if hint is None:
             return None
         return Hints(
-            level_id, 
-            hint["_name"], 
+            level_id,
+            hint["_name"],
             {k:v for k,v in hint.items() if not k.startswith("_")}
         )
-        
+
 
 @dataclass
 class Hints:
@@ -231,7 +238,7 @@ class LevelData:
     style: int | None
     parent: str | None
     map_id: str | None
-    
+
     @classmethod
     def from_row(cls, row: Row) -> LevelData:
         '''Level from db row'''

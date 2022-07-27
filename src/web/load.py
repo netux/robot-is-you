@@ -7,7 +7,7 @@ import re
 import io
 import pathlib
 from PIL import Image, ImageChops, ImageDraw
-from typing import Any
+from typing import Any, Callable
 
 from quart import current_app
 
@@ -16,8 +16,46 @@ from ..db import Database, TileData
 
 logger = current_app.logger if current_app else logging.getLogger(__name__)
 
+class LoadFlagHandlers:
+	def __init__(self, flag: str, description: str, fn: Callable) -> None:
+		self.flag: str = flag
+		self.description: str = description
+		self.fn: Callable = fn
+
+	async def __call__(self, db: Database, *args, **kwargs):
+		async with db.conn.cursor() as cur:
+			await cur.execute(
+				'''
+				SELECT true FROM load_flags
+				WHERE flag = ?
+				''',
+				(self.flag,)
+			)
+			skip_load = await cur.fetchone()
+
+		if skip_load:
+			logger.info(f"Skipping load of {self.description} as load flag {self.flag} is set on the database")
+			return
+
+		logger.info(f"Loading {self.description}")
+		await self.fn(db, *args, **kwargs)
+		logger.info(f"Loaded {self.description}")
+
+		await db.conn.execute(
+			'''
+			INSERT OR IGNORE INTO load_flags VALUES (?)
+			''',
+			(self.flag,)
+		)
+
+def with_load_flag(flag: str, description: str):
+	def wrapper(fn: Callable):
+		return LoadFlagHandlers(flag=flag, description=description, fn=fn)
+	return wrapper
+
 #region Tiles
 
+@with_load_flag(flag="tiles.initial", description="initial tiles")
 async def load_initial_tiles(db: Database):
 	'''Loads tile data from `data/values.lua` and `.ld` files.'''
 
@@ -178,6 +216,7 @@ async def load_initial_tiles(db: Database):
 		ready
 	)
 
+@with_load_flag(flag="tiles.editor", description="initial editor")
 async def load_editor_tiles(db: Database):
 	'''Loads tile data from `data/editor_objectlist.lua`.'''
 
@@ -263,6 +302,7 @@ async def load_editor_tiles(db: Database):
 		objects
 	)
 
+@with_load_flag(flag="tiles.custom", description="initial custom")
 async def load_custom_tiles(db: Database):
 	'''Loads custom tile data from `data/custom/*.json`'''
 
@@ -356,14 +396,6 @@ async def load_custom_tiles(db: Database):
 				''',
 				hacks
 			)
-
-async def load_all_tiles(db: Database):
-	await load_initial_tiles(db)
-	logger.info("Loaded initial tiles")
-	await load_editor_tiles(db)
-	logger.info("Loaded editor tiles")
-	await load_custom_tiles(db)
-	logger.info("Loaded custom tiles")
 
 #endregion Tiles
 
@@ -520,6 +552,7 @@ async def _load_letter(db: Database, word: str, tile_type: int):
 	)
 	await cur.close() # NOTE(netux): helps prevent overloading sqlite
 
+@with_load_flag(flag="letters.vanilla", description="vanilla letters")
 async def load_vanilla_letters(db: Database):
 	ignored = json.load(open("config/letterignore.json"))
 	for row in await db.conn.fetchall(
@@ -540,16 +573,20 @@ async def load_vanilla_letters(db: Database):
 
 	await _load_ready_letters(db)
 
-async def load_all_letters(db: Database):
-	await load_vanilla_letters(db)
-	logger.info("Loaded vanilla letters")
-
 #endregion Letters
+
+loaders = [
+	load_initial_tiles,
+	load_editor_tiles,
+	load_custom_tiles,
+
+	load_vanilla_letters
+]
 
 async def load(db: Database):
 	logger.info("Loading...")
 
-	await load_all_tiles(db)
-	await load_all_letters(db)
+	for loader in loaders:
+		await loader(db)
 
 	logger.info("Loading done!")
