@@ -230,7 +230,11 @@
 				anchorEl.addEventListener("click", (ev) => {
 					ev.preventDefault();
 
+					iframeEl.style.visibility = "hidden";
 					iframeEl.src = anchorEl.href;
+					iframeEl.onload = () => {
+						iframeEl.style.visibility = "visible";
+					}
 					popupFrameEl.showModal();
 				});
 			}
