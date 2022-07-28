@@ -26,7 +26,6 @@
 
 		footer {
 			border-top: 1px solid black;
-			opacity: grey;
 			font-style: italic;
 		}
 
@@ -52,6 +51,21 @@
 			background-color: #e50000;
 			color: white;
 			padding: 1em;
+		}
+
+		#popup-frame[open] {
+			display: flex;
+			flex-direction: column;
+		}
+
+		#popup-frame iframe {
+			width: 100%;
+			height: 100%;
+		}
+
+		#popup-frame form[method="dialog"] {
+			margin: 0.5em;
+			text-align: center;
 		}
 
 		.warning {
@@ -187,6 +201,13 @@
 		Based on the <a href="https://github.com/RocketRace/robot-is-you">ROBOT IS YOU</a> Discord bot by <a href="https://github.com/RocketRace">@RocketRace</a>.
 	</footer>
 
+	<dialog id="popup-frame">
+		<iframe></iframe>
+		<form method="dialog">
+			<button>Close</button>
+		</form>
+	</dialog>
+
 	<script>
 		/* handle example prompt clicks */ {
 			const formEl = document.getElementById("input");
@@ -201,15 +222,16 @@
 			}
 		}
 
-		/* handle click on target="_pop" anchors */ {
+		/* handle popup links */ {
+			const popupFrameEl = document.getElementById("popup-frame");
+			const iframeEl = popupFrameEl.getElementsByTagName("iframe")[0];
 			const anchorEls = document.querySelectorAll(`a[href][target="_pop"]`);
 			for (const anchorEl of anchorEls) {
 				anchorEl.addEventListener("click", (ev) => {
 					ev.preventDefault();
 
-					window.open(anchorEl.href, "_blank", {
-						popup: true
-					});
+					iframeEl.src = anchorEl.href;
+					popupFrameEl.showModal();
 				});
 			}
 		}

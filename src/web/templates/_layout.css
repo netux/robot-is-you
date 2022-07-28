@@ -26,3 +26,31 @@ code {
 	border-radius: 6px;
 	background-color: lightgrey;
 }
+
+dialog {
+	min-width: 400px;
+	min-height: 400px;
+	width: 60%;
+	height: 60%;
+	padding: 0;
+	user-select: initial;
+}
+
+dialog::backdrop {
+	user-select: none;
+}
+
+@media (max-width: 768px) {
+	dialog {
+		width: 100%;
+		height: 100%;
+		max-width: none;
+		max-height: none;
+		margin: 0;
+		border: none;
+	}
+
+	html:has(dialog[open]) {
+		overflow-y: none;
+	}
+}
