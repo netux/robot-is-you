@@ -98,7 +98,7 @@
 		<form id="input">
 			<div>
 				<label for="prompt"><b>Prompt</b>:</label>
-				<textarea name="prompt">{{ prompt or "" }}</textarea>
+				<textarea name="prompt" rows="{{ (prompt or "").count("\n") }}">{{ prompt or "" }}</textarea>
 			</div>
 			<details>
 				<summary>Cheatsheet</summary>
