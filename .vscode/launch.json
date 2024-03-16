@@ -6,22 +6,50 @@
 	"configurations": [
 		{
 			"name": "ROBOT IS DEBUG",
-			"type": "python",
+			"type": "debugpy",
 			"request": "launch",
 			"program": "${workspaceFolder}/ROBOT.py",
 			"console": "integratedTerminal",
 			"justMyCode": false
 		},
 		{
-			"name": "WEBAPP IS DEBUG",
-			"type": "python",
+			"name": "WEBAPP SERVER IS DEBUG",
+			"type": "debugpy",
 			"request": "launch",
 			"program": "${workspaceFolder}/WEBAPP.py",
 			"env": {
-				"QUART_ENV": "development"
+				"QUART_DEBUG": "true"
 			},
 			"jinja": true,
 			"justMyCode": false
+		},
+		{
+			"name": "WEBAPP CLIENT IS DEBUG",
+			"type": "node",
+			"request": "launch",
+			"cwd": "${workspaceFolder}/frontend",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "dev"],
+			"skipFiles": [
+				"<node_internals>/**"
+			]
+		},
+		{
+			"name": "CHROME IS OPEN",
+			"type": "chrome",
+			"request": "launch",
+			"urlFilter": "http://localhost:5000/webapp-is-you/*",
+			"webRoot": "${workspaceFolder}/frontend"
+		}
+	],
+	"compounds": [
+		{
+			"name": "WEBAPP IS DEBUG AND OPEN",
+			"configurations": [
+				"WEBAPP SERVER IS DEBUG",
+				"WEBAPP CLIENT IS DEBUG",
+				"CHROME IS OPEN"
+			]
 		}
 	]
 }
