@@ -6,13 +6,14 @@ The webapp is written in Quart (reimplementation of Flask), and aims to provide 
 
 99% of the code here was written by the original ROBOT IS YOU devs. Please give them some love 🧡.
 
-Looking for the README for ROBOT? Check [the original repository](https://github.com/RocketFace/robot-is-you) or [the README in the master branch](./blob/master#README).
+Looking for the README for ROBOT? Check [the original repository](https://github.com/RocketRace/robot-is-you) or [the README in the master branch](./tree/master#README).
 
+<!-- markdownlint-disable-next-line MD025 -->
 # To Host This Yourself
 
 Please follow the terms of the license!
 
-It is recommended to use a virtual environment: `python3 -m venv .venv`, then `source .venv/path_to_active_script_for_your_system`.
+It is recommended to use a virtual environment: `python3 -m venv .venv`, then `source .venv/path_to_activate_script_for_your_system`.
 
 Install the requirements: `python3 -m pip install -r requirements.txt`.
 
