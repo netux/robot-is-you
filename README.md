@@ -6,7 +6,7 @@ The webapp is written in Quart (reimplementation of Flask), and aims to provide 
 
 99% of the code here was written by the original ROBOT IS YOU devs. Please give them some love 🧡.
 
-Looking for the README for ROBOT? Check [the original repository](https://github.com/RocketRace/robot-is-you) or [the README in the master branch](./tree/master#README).
+Looking for the README for ROBOT? Check [the original repository](https://github.com/RocketRace/robot-is-you) or [the README in the master branch](https://github.com/netux/webapp-is-you/tree/master#README).
 
 <!-- markdownlint-disable-next-line MD025 -->
 # To Host This Yourself
