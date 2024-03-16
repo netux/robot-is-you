@@ -7,11 +7,12 @@ import math
 import re
 import tempfile
 import dataclasses
+from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
 import quart
-from quart import render_template, request, make_response
+from quart import render_template, request, make_response, send_from_directory
 from markupsafe import Markup, escape
 
 from config import *
@@ -21,10 +22,9 @@ from src.web.util import RenderTilesOptions, render_tiles
 from src.web.context import get_database, get_operation_macros, get_variant_handlers, teardown_appcontext
 from src.web.middleware.path_prefix import RoutePrefixMiddleware
 
-app = quart.Quart(__name__,
-	template_folder="src/web/templates",
-	static_folder="src/web/static"
-)
+root_path = Path(__file__).parent.resolve()
+
+app = quart.Quart(__name__)
 
 if webapp_route_prefix:
 	app.asgi_app = RoutePrefixMiddleware(app.asgi_app, prefix=webapp_route_prefix)
@@ -59,25 +59,9 @@ def not_ready_fallback(f):
 		if load_done:
 			return await f(*args, **kwargs)
 		else:
-			return await render_template("loading.html")
+			return { "error": "Woah there! We are loading the resources needed to make this site work, and will get back to you in a bit." }, 503
 	return wrapper
 
-
-def coerce_request_arg_to_bool(value: str | None) -> bool | None:
-	# None => False
-	# len(value) > 0 => True
-	# len(value) == 0 => False
-	return bool(value)
-
-def coerce_request_arg_to_int(value: str | None) -> int | None:
-	# None => None
-	# "<integer>" => <integer>
-	# "<integer>.<decimals>" => <integer>
-	# "<non-number>" => None
-	try:
-		return int(value) if value is not None else None
-	except ValueError:
-		return None
 
 @dataclasses.dataclass(frozen=True)
 class GeneratedTiles:
@@ -113,7 +97,7 @@ async def results(result_url_hash: str):
 	generated_tiles = input_hash_to_generated_tiles_map.get(input_hash, None)
 
 	if generated_tiles is None:
-		response = await make_response("Unknown hash")
+		response = await make_response({ "error": "Unknown hash" })
 		response.status_code = 400
 		return response
 
@@ -155,21 +139,7 @@ class WebappRenderTilesOptions:
 
 		return RenderTilesOptions(**opts)
 
-	@classmethod
-	def from_request(Cls, request: quart.Request):
-		get = lambda name: request.args.get(name, None)
-
-		return Cls(
-			use_bg=coerce_request_arg_to_bool(get("use_bg")),
-			bg_tx=coerce_request_arg_to_int(get("bg_tx")),
-			bg_ty=coerce_request_arg_to_int(get("bg_ty")),
-			palette=get("palette"),
-			default_to_letters=coerce_request_arg_to_bool(get("default_to_letters")),
-			delay=coerce_request_arg_to_int(get("delay")),
-			frame_count=coerce_request_arg_to_int(get("frame_count"))
-		)
-
-@app.route("/list/variants")
+@app.route("/api/list/variants")
 async def list_variants():
 	all_variants = (await get_variant_handlers()).handlers
 	grouped_variants: dict[str, list[str]] = {}
@@ -182,19 +152,18 @@ async def list_variants():
 		variants=grouped_variants
 	)
 
-@app.route("/list/operations")
+@app.route("/api/list/operations")
 async def list_operations():
 	operation_macros = await get_operation_macros()
-	return await render_template("list_operations.html",
-		operations=operation_macros.get_all()
-	)
+	return operation_macros.get_all()
 
-@app.route("/text", methods=["GET", "POST"])
+@app.route("/api/text", methods=["POST"])
 @not_ready_fallback
 async def text():
 	generated_tiles = None
-	prompt = request.args.get("prompt", None)
-	options = WebappRenderTilesOptions.from_request(request)
+	body_json: dict = await request.get_json(force=True)
+	prompt = body_json.pop("prompt", None)
+	options = WebappRenderTilesOptions(**body_json)
 	error_msg = None
 	status_code = 200
 
@@ -220,24 +189,66 @@ async def text():
 				input_hash_to_generated_tiles_map[input_hash] = generated_tiles
 		else:
 			generated_tiles = input_hash_to_generated_tiles_map[input_hash]
+	else:
+		return { "error": "missing 'prompt' in request body" }, 400
 
-	response = await make_response(await render_template("text.html",
-		prompt=prompt,
-		generated_tiles=generated_tiles,
-		options=options,
-		error_msg=error_msg
-	))
-	response.status_code = status_code
-	return response
+	if error_msg is not None:
+		return { "error": error_msg }, status_code
+
+	return {
+		'prompt': prompt,
+		'resultURLHash': generated_tiles.result_url_hash
+	}
+
+# Reverse proxy to frontend
+if quart.helpers.get_debug_flag():
+	import httpx
+	frontend_reverse_proxy_client = httpx.AsyncClient(base_url=f"http://{webapp_frontend_host}/")
+
+	@app.route("/", methods=["GET"])
+	@app.route("/<path:path>", methods=["GET"])
+	async def frontend_reverse_proxy(path: str = "index.html"):
+		# Based on https://stackoverflow.com/a/74556972
+
+		# TODO(netux): 	The websocket Svelte uses for hot reloading is definitely not going to work with this setup
+		# 							Find a reverse proxy middleware for Flask/Quart, or implement websockets myself somehow?
+
+		url = httpx.URL(path=path, query=request.query_string)
+
+		frontend_request = frontend_reverse_proxy_client.build_request(
+			request.method,
+			url,
+			headers=dict(request.headers),
+		)
+		frontend_response = await frontend_reverse_proxy_client.send(frontend_request, stream=True)
+
+		async def stream_response():
+			async for chunk in frontend_response.aiter_raw():
+				yield chunk
+			await frontend_response.aclose()
+
+		return (stream_response(), frontend_response.status_code, dict(frontend_response.headers))
+else:
+	@app.route("/", methods=["GET"])
+	@app.route("/<path:path>", methods=["GET"])
+	async def frontend_serve_static(path: str = "index.html"):
+		return await send_from_directory(
+			directory=str(root_path / "frontend/dist"),
+			file_name=path
+		)
 
 async def do_load():
 	global load_done
+
+	app.logger.debug("Loading..")
 
 	load_done = False
 	async with app.app_context():
 		db = await get_database()
 		await load(db)
 	load_done = True
+
+	app.logger.debug("Load done")
 
 async def remove_scheduled_loop():
 	global scheduled_to_remove
