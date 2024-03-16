@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional
 
 import quart
-from quart import render_template, request, make_response, send_from_directory
+from quart import request, make_response, send_from_directory
 from markupsafe import Markup, escape
 
 from config import *
@@ -148,9 +148,7 @@ async def list_variants():
 		if group not in grouped_variants:
 			grouped_variants[group] = []
 		grouped_variants[group].extend(variant.hints.values())
-	return await render_template("list_variants.html",
-		variants=grouped_variants
-	)
+	return grouped_variants
 
 @app.route("/api/list/operations")
 async def list_operations():
@@ -212,6 +210,8 @@ if quart.helpers.get_debug_flag():
 
 		# TODO(netux): 	The websocket Svelte uses for hot reloading is definitely not going to work with this setup
 		# 							Find a reverse proxy middleware for Flask/Quart, or implement websockets myself somehow?
+		# 							- https://pypi.org/project/fastapi-proxy-lib/ (switch to Flask?)
+		#								- https://pypi.org/project/asgiproxify/
 
 		url = httpx.URL(path=path, query=request.query_string)
 
