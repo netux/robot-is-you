@@ -26,7 +26,8 @@ app = quart.Quart(__name__,
 	static_folder="src/web/static"
 )
 
-app.asgi_app = RoutePrefixMiddleware(app.asgi_app, prefix=webapp_route_prefix)
+if webapp_route_prefix:
+	app.asgi_app = RoutePrefixMiddleware(app.asgi_app, prefix=webapp_route_prefix)
 
 @app.teardown_appcontext
 async def teardown(err):

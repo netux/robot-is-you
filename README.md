@@ -26,5 +26,4 @@ Bot/webapp configuration is in `config.py`. Of all the values defined there, the
 * `webapp_host`: `str` - Hostname to listen on.
 * `webapp_port`: `int` - Port to listen on.
 * `webapp_max_result_life`: `datetime.timedelta` - Amount of time a result lives on the server before it is removed.
-* `webapp_route_prefix`: `str` - Prefix for all routes. Useful when serving through a proxy e.g. https://my.domain/webapp-is-you/.
-
+* `webapp_route_prefix`: `str | None` - Prefix for all routes. Useful when serving through a proxy e.g. https://my.domain/webapp-is-you/.
