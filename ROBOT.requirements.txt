@@ -5,4 +5,3 @@ git+https://github.com/Rapptz/asqlite
 git+https://github.com/Rapptz/discord-ext-menus
 numpy>=1.18
 lark-parser>=0.12
-quart>=0.18.0

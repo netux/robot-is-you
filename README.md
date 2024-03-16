@@ -15,7 +15,7 @@ Please follow the terms of the license!
 
 It is recommended to use a virtual environment: `python3 -m venv .venv`, then `source .venv/path_to_activate_script_for_your_system`.
 
-Install the requirements: `python3 -m pip install -r requirements.txt`.
+Install the requirements: `python3 -m pip install -r WEBAPP.requirements.txt`.
 
 Run the webapp using `python3 WEBAPP.py`.
 

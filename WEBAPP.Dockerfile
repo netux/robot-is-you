@@ -16,7 +16,7 @@ RUN apt-get update -y && \
 		apt-get install -y git
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install -r WEBAPP.requirements.txt
 
 # Load data onto the database
 RUN python loader.py
