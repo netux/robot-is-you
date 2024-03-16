@@ -15,9 +15,9 @@ Please follow the terms of the license!
 
 It is recommended to use a virtual environment: `python3 -m venv .venv`, then `source .venv/path_to_activate_script_for_your_system`.
 
-Install the requirements: `python3 -m pip install -r WEBAPP.requirements.txt`.
+Install the requirements: `python3 -m pip install -r WEBAPP.requirements.txt` and `npm install --prefix frontend`.
 
-Run the webapp using `python3 WEBAPP.py`.
+Run the webapp using `QUART_DEBUG=true python3 WEBAPP.py` on one terminal, and `npm run dev --prefix frontend` on another.
 
 ## Required files
 
@@ -28,3 +28,4 @@ Bot/webapp configuration is in `config.py`. Of all the values defined there, the
 * `webapp_port`: `int` - Port to listen on.
 * `webapp_max_result_life`: `datetime.timedelta` - Amount of time a result lives on the server before it is removed.
 * `webapp_route_prefix`: `str | None` - Prefix for all routes. Useful when serving through a proxy e.g. https://my.domain/webapp-is-you/.
+* `webapp_frontend_host`: `str` - Host of Svelte frontend in local network. Usually localhost:5173, which is the default for Vite.
