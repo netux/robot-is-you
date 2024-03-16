@@ -4,7 +4,6 @@ import asyncio
 import base64
 import logging
 import math
-import re
 import tempfile
 import dataclasses
 from pathlib import Path
@@ -13,7 +12,6 @@ from typing import Optional
 
 import quart
 from quart import request, make_response, send_from_directory
-from markupsafe import Markup, escape
 
 from config import *
 from src import errors
@@ -32,23 +30,6 @@ if webapp_route_prefix:
 @app.teardown_appcontext
 async def teardown(err):
 	await teardown_appcontext(err)
-
-DISCORD_MARKDOWN_INLINE_CODE_REGEXP: re.Pattern = re.compile(r"`([^`]+?)`")
-
-@app.template_filter("replace_discord_markdown")
-async def template_filter__replace_discord_markdown(value: str):
-	"""
-	Helper to render some very simple markdown from strings originally made for ROBOT.
-
-	! THIS IS NAIVE AND UNSAFE. DO NOT PROVIDE USER INPUT. !
-
-	Implemented so far:
-	- `inline-code` => <code>inline-code</code>
-	"""
-
-	value = escape(value)
-	value = DISCORD_MARKDOWN_INLINE_CODE_REGEXP.sub(lambda m: f"<code>{m[1]}</code>", value)
-	return Markup(value)
 
 load_done = False
 
