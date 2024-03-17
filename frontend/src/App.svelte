@@ -3,7 +3,7 @@
   let resultURLHash: string | null = null;
 
   async function handleRender() {
-    const response = await fetch("/api/text", {
+    const response = await fetch("/api/render/tiles", {
       method: "POST",
       headers: {
         "content-type": "application/json"

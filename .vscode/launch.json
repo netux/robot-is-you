@@ -16,11 +16,18 @@
 			"name": "WEBAPP SERVER IS DEBUG",
 			"type": "debugpy",
 			"request": "launch",
-			"program": "${workspaceFolder}/WEBAPP.py",
+			"module": "uvicorn",
+			"args": [
+				"WEBAPP:app",
+				"--host=0.0.0.0",
+				"--port=5000",
+				"--reload",
+				"--reload-exclude", ".*, node_modules/**/*, frontend/**/*"
+			],
 			"env": {
-				"QUART_DEBUG": "true"
+				"PYTHON_ENV": "development",
+				"WATCHFILES_FORCE_POLLING": "true"
 			},
-			"jinja": true,
 			"justMyCode": false
 		},
 		{
@@ -38,7 +45,7 @@
 			"name": "CHROME IS OPEN",
 			"type": "chrome",
 			"request": "launch",
-			"urlFilter": "http://localhost:5000/webapp-is-you/*",
+			"url": "http://localhost:5000/webapp-is-you",
 			"webRoot": "${workspaceFolder}/frontend"
 		}
 	],

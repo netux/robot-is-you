@@ -28,4 +28,4 @@ RUN npm run build --prefix frontend/
 RUN python loader.py
 
 EXPOSE 5000
-ENTRYPOINT [ "python", "WEBAPP.py" ]
+ENTRYPOINT [ "uvicorn", "WEBAPP:app", "--host=0.0.0.0", "--port=5000" ]

@@ -14,7 +14,7 @@ from lark.tree import Tree
 from .. import constants, errors
 from ..tile import RawTile
 
-from .context import get_database, get_operation_macros, get_variant_handlers, get_renderer, get_lark_parser
+from .dependencies import get_database, get_operation_macros, get_variant_handlers, get_renderer, get_lark_parser
 
 async def handle_variant_errors(err: errors.VariantError):
 	'''Handle errors raised in a command context by variant handlers'''
